@@ -300,6 +300,6 @@ public class Client extends JFrame {
     }
 
     public static void main(String[] args) {
-        new Client("localhost", 54321);
+        // 추후 작성
     }
 }

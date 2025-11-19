@@ -215,6 +215,6 @@ public class Server  extends JFrame {
     }
 
     public static void main(String[] args) {
-        new Server(54321);
+        // 추후 작성
     }
 }
