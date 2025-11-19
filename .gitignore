@@ -38,4 +38,4 @@ bin/
 .DS_Store
 
 ### Seerver IP & Port ###
-./server.txt
+server.txt
