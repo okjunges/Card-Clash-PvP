@@ -1,4 +1,4 @@
-import client.Client;
+import client.ClientFrame;
 import common.ServerInfo;
 import server.Server;
 
@@ -7,8 +7,8 @@ public class Main {
         String serverAddress = ServerInfo.getInstance().getIP();
         int port = ServerInfo.getInstance().getPORT();
 
-        Client client = new Client(serverAddress, port);
-        Client client1 = new Client(serverAddress, port);
+        new ClientFrame();
+        new ClientFrame();
         Server server = new Server(port);
     }
 }

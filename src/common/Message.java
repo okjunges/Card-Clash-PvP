@@ -122,7 +122,7 @@ public class Message implements Serializable {
     }
 
     // 예전 코드
-    public final static int MODE_LOGOUT = 0x2;
+    public final static int MODE_LOGOUT = 0x200; // 기존 0x2 였던 것을 다른 값으로
     public final static int MODE_TX_STRING = 0x10;
     public final static int MODE_TX_FILE = 0x20;
     public final static int MODE_TX_IMAGE = 0x40;
