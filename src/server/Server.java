@@ -1,6 +1,8 @@
 package server;
 
 import common.Message;
+import common.ServerInfo;
+import common.State;
 
 import javax.swing.*;
 import java.awt.*;
@@ -18,14 +20,13 @@ import java.util.Vector;
 
 public class Server  extends JFrame {
     private JTextArea t_display = new JTextArea("");
-    private JButton b_connect = new JButton("서버 시작");
-    private JButton b_disconnect = new JButton("서버 종료");
     private JButton b_exit = new JButton("종료");
     private int port;
     private ServerSocket serverSocket;
     private Thread acceptThread = null;
     private Thread clientThread;
     private Vector<ClientHandler> users = new Vector<ClientHandler>();
+    private Vector<Room> rooms = new Vector<Room>();
 
     public Server(int port) {
         super("Card Clash PvP Server");
@@ -35,6 +36,11 @@ public class Server  extends JFrame {
         setVisible(true);
 
         this.port = port;
+        acceptThread = new Thread(new Runnable() {
+            @Override
+            public void run() { startServer(); }
+        });
+        acceptThread.start();
     }
     public void buildGUI() {
         add(createDisplayPanel(), BorderLayout.CENTER);
@@ -52,30 +58,7 @@ public class Server  extends JFrame {
     }
     public JPanel createControlPanel() {
         JPanel controlPanel = new JPanel(new GridLayout(1,0));
-        controlPanel.add(b_connect);
-        controlPanel.add(b_disconnect);
         controlPanel.add(b_exit);
-        b_connect.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                acceptThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() { startServer(); }
-                });
-                acceptThread.start();
-                b_disconnect.setEnabled(true);
-                b_connect.setEnabled(false);
-            }
-        });
-        b_disconnect.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                System.out.println("접속이 끊어졌습니다");
-                b_connect.setEnabled(true);
-                b_disconnect.setEnabled(false);
-                disconnect();
-            }
-        });
         b_exit.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -83,7 +66,6 @@ public class Server  extends JFrame {
                 System.exit(0);
             }
         });
-        b_disconnect.setEnabled(false);
         return controlPanel;
     }
     String getLocalAddr() {
@@ -107,7 +89,8 @@ public class Server  extends JFrame {
                 clientThread = new ClientHandler(clientSocket);
                 clientThread.start();
                 users.add((ClientHandler) clientThread);
-                b_disconnect.setEnabled(false);
+
+                b_exit.setEnabled(false);
             }
         } catch (SocketException e) {
             System.err.println("서버 소켓 종료 > " + e.getMessage());
@@ -124,18 +107,30 @@ public class Server  extends JFrame {
             }
         }
     }
-    public void disconnect() {
-        try {
-            acceptThread = null;
-            serverSocket.close();
-        } catch (IOException err) {
-            System.err.println("서버 소켓 닫기 오류 > "+err.getMessage());
-            System.exit(-1);
-        }
-    }
     public void printDisplay(String msg) {
         t_display.append(msg + "\n");
         t_display.setCaretPosition(t_display.getDocument().getLength());
+    }
+
+    private Room findRoomByName(String roomName) {
+        if (roomName == null) return null;
+
+        for (Room r : rooms) {
+            if (r.roomName.equals(roomName)) return r;
+        }
+        return null;
+    }
+
+    private Room findRoomByUser(String uid) {
+        if (uid == null) return null;
+
+        for (Room r : rooms) {
+            if ((r.player1 != null && r.player1.getUid().equals(uid)) ||
+                    (r.player2 != null && r.player2.getUid().equals(uid))) {
+                return r;
+            }
+        }
+        return null;
     }
 
     private class ClientHandler extends Thread {
@@ -157,25 +152,106 @@ public class Server  extends JFrame {
                         uid = msg.getUserID();
                         printDisplay("새 참가자 : " + uid);
                         printDisplay("현재 참가자 수 : " + users.size());
-                        continue;
                     }
-                    else if (msg.getMode() == Message.MODE_LOGOUT) {
-                        break;
-                    }
-                    else if (msg.getMode() == Message.MODE_TX_STRING) {
-                        message = uid + " : " + msg.getMessage();
-                        printDisplay(message);
+                    else if (msg.getMode() == Message.MODE_CREATE_ROOM) {
+                        Room room = new Room(msg.getRoomName(), this);
+                        rooms.add(room);
+                        printDisplay(uid + " 가 방 생성 : " + msg.getRoomName());
                         broadcasting(msg);
                     }
-                    else if (msg.getMode() == Message.MODE_TX_IMAGE) {
-                        printDisplay(uid + " : " + msg.getMessage());
-                        broadcasting(msg);
+                    else if (msg.getMode() == Message.MODE_ENTER_ROOM) {
+                        Room room = findRoomByName(msg.getRoomName());
+                        if (room != null && !room.isReady()) {
+                            room.enterRoom(this);
+                            printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
+                            broadcasting(msg);
+                        }
+                        else { printDisplay(msg.getRoomName() + " 방이 없습니다."); }
+                    }
+                    else if (msg.getMode() == Message.MODE_GAME_START) {
+                        Room room = findRoomByUser(uid);
+                        if (room == null) {
+                            printDisplay("게임 시작 실패 : 방을 찾을 수 없음 - " + uid);
+                            continue;
+                        }
+                        if (!room.isReady()) {
+                            printDisplay("게임 시작 실패 : " + room.roomName + "방 인원 부족 - " + room.roomName);
+                            continue;
+                        }
+                        printDisplay(room.roomName + "방에서 게임을 시작했습니다");
+                        Message stateMsg = new Message(Message.MODE_GAME_START, room.p1State, room.p2State);
+                        room.broadcasting(stateMsg);
+                    }
+                    else if (msg.getMode() == Message.MODE_CHAT) {
+                        Room room = findRoomByUser(uid);
+                        if (room == null) {
+                            printDisplay("채팅 실패 : 방을 찾을 수 없음 - " + uid);
+                            continue;
+                        }
+                        message = msg.getMessage();
+                        printDisplay(room.roomName + "방에서 " + uid + "의 메세지 : " + message);
+                        room.broadcasting(msg);
+                    }
+                    else if (msg.getMode() == Message.MODE_USE_CARD) {
+                        // 플레이어가 속한 방 찾기
+                        Room room = findRoomByUser(uid);
+                        if (room == null) {
+                            printDisplay("카드 사용 실패 : 방을 찾을 수 없음 - " + uid);
+                            continue;
+                        }
+                        room.broadcasting(msg);
+                        printDisplay(room.roomName + "방에서 " + uid + "가 " + msg.getCardCode() + "번 카드 사용");
+
+                        // 해당 카드 효과를 방에 적용
+                        room.applyCard(msg.getCardCode(), this);
+
+                        // 변경된 상태를 모든 플레이어에게 방송
+                        Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.p1State, room.p2State);
+
+                        printDisplay(room.roomName + "방에서 " + room.p1State.getName() + "의 (hp, cost, shield) : (" + room.p1State.getHp() + ", " + room.p1State.getCost() + ", " + room.p1State.getShield() + ")");
+                        printDisplay(room.roomName + "방에서 " + room.p2State.getName() + "의 (hp, cost, shield) : (" + room.p2State.getHp() + ", " + room.p2State.getCost() + ", " + room.p2State.getShield() + ")");
+                        room.broadcasting(stateMsg);
+
+                        if (room.p1State.getHp() <= 0) {
+                            printDisplay(room.roomName + "에서 " + room.player1.getUid() + "의 hp가 0으로 패배");
+                            Message endMsg = new Message(Message.MODE_GAME_END, room.player1.getUid());
+                            room.broadcasting(endMsg);
+                            finishGame(room);
+                        }
+                        else if (room.p2State.getHp() <= 0) {
+                            printDisplay(room.roomName + "에서 " + room.player2.getUid() + "의 hp가 0으로 패배");
+                            Message endMsg = new Message(Message.MODE_GAME_END, room.player2.getUid());
+                            room.broadcasting(endMsg);
+                            finishGame(room);
+                        }
+                    }
+                    else if (msg.getMode() == Message.MODE_TURN_END) {
+                        Room room = findRoomByUser(uid);
+                        if (room == null) {
+                            printDisplay("턴 종료 실패 : 방을 찾을 수 없음 - " + uid);
+                            continue;
+                        }
+                        printDisplay(room.roomName + "에서 " + msg.getUserID() + "의 턴 종료");
+                        room.broadcasting(msg);
+                    }
+                    else if (msg.getMode() == Message.MODE_GAME_END) {
+                        Room room = findRoomByUser(msg.getUserID());
+                        if (room == null) {
+                            printDisplay("게임 종료 실패 : 방을 찾을 수 없음 - " + uid);
+                            continue;
+                        }
+                        printDisplay(room.roomName + "에서 " + msg.getUserID() + "가 항복");
+                        room.broadcasting(msg);
+                        finishGame(room);
+                    }
+                    else if (msg.getMode() == Message.MODE_ROOM_LIST) {
+                        Vector<String> list = new Vector<>();
+                        // 현재 서버에 있는 방 중에 player2가 아직 들어가지 않은(즉, 현재 플레이어가 들어갈 수 있는) 방 목록 반환
+                        for (Room r : rooms) { if (r.player2 == null) { list.add(r.roomName); } }
+                        Message returnMsg = new Message(Message.MODE_ROOM_LIST, list);
+                        send(returnMsg);
                     }
                 }
-                printDisplay(uid + "님이 연결을 종료하였습니다");
-                printDisplay("현재 참가자 수 : " + users.size());
-                users.removeElement(this);
-                if (users.size() == 0) { b_disconnect.setEnabled(true); }
             } catch (ClassNotFoundException e) {
                 printDisplay("잘못된 객체가 전달되었습니다");
             } catch (IOException e) {
@@ -184,9 +260,18 @@ public class Server  extends JFrame {
             finally {
                 try {
                     clientSocket.close();
+                    Room room = findRoomByUser(uid);
+                    if (room != null) {
+                        // 플레이어가 강제 종료했을 때 해당 플레이어의 항복 처리 이후 게임 방 삭제
+                        room.broadcasting(new Message(Message.MODE_GAME_END, uid));
+                        printDisplay(room.roomName + "에서 " + uid + "가 항복");
+                        finishGame(room);
+                    }
+                    users.removeElement(this);
                     printDisplay(uid + "님이 연결을 종료하였습니다");
                     printDisplay("현재 참가자 수 : " + users.size());
-                    users.removeElement(this);
+                    // 접속한 플레이어가 없을 경우엔 서버 종료 가능
+                    if (users.isEmpty()) { b_exit.setEnabled(true); }
                 } catch (IOException e) {
                     System.err.println("서버 닫기 오류 > " + e.getMessage());
                     System.exit(-1);
@@ -203,18 +288,66 @@ public class Server  extends JFrame {
             }
         }
 
-        public void sendMessage(String message) {
-            send(new Message(uid, Message.MODE_TX_STRING, message));
-        }
-        public void broadcasting(Message msg) {
-            for (ClientHandler thread : users) { thread.send(msg); }
-        }
+        public void broadcasting(Message msg) { for (ClientHandler thread : users) { thread.send(msg); } }
 
         @Override
         public void run() { receiveMessages(clientSocket); }
+
+        public String getUid() { return uid; }
+        public void finishGame(Room room) {
+            printDisplay(room.roomName + " 게임 종료");
+            // 서버에서 방만 삭제
+            rooms.remove(room);
+        }
+    }
+
+    public class Room {
+        String roomName;
+        ClientHandler player1;
+        ClientHandler player2;
+        State p1State;
+        State p2State;
+
+        Room(String roomName, ClientHandler player1) {
+            this.roomName = roomName;
+            this.player1 = player1;
+            this.p1State = new State(player1.getUid(), 30, 3, 0);
+        }
+        public void enterRoom(ClientHandler player2) {
+            this.player2 = player2;
+            this.p2State = new State(player2.getUid(), 30, 3, 0);
+        }
+        public boolean isReady() {
+            return player1 != null && player2 != null;
+        }
+        public State getStateOf(ClientHandler handler) {
+            if (handler == player1) return p1State;
+            else if (handler == player2) return p2State;
+            else return null;
+        }
+        public State getOpponentStateOf(ClientHandler handler) {
+            if (handler == player1) return p2State;
+            else if (handler == player2) return p1State;
+            else return null;
+        }
+        public void applyCard(int cardCode, ClientHandler caster) {
+            State me = getStateOf(caster);
+            State enemy = getOpponentStateOf(caster);
+
+            switch (cardCode) {
+                case Message.Strike:
+                    break;
+            }
+        }
+
+        public void broadcasting(Message msg) {
+            if (player1 != null) player1.send(msg);
+            if (player2 != null) player2.send(msg);
+        }
     }
 
     public static void main(String[] args) {
-        // 추후 작성
+        int port = ServerInfo.getInstance().getPORT();
+        Server server = new Server(port);
     }
 }
