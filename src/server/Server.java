@@ -111,6 +111,10 @@ public class Server  extends JFrame {
         t_display.append(msg + "\n");
         t_display.setCaretPosition(t_display.getDocument().getLength());
     }
+    public void printRoomPlayersState(Room room) {
+        printDisplay(room.roomName + "방에서 " + room.p1State.getName() + "의 (hp, cost, shield) : (" + room.p1State.getHp() + ", " + room.p1State.getCost() + ", " + room.p1State.getShield() + ")");
+        printDisplay(room.roomName + "방에서 " + room.p2State.getName() + "의 (hp, cost, shield) : (" + room.p2State.getHp() + ", " + room.p2State.getCost() + ", " + room.p2State.getShield() + ")");
+    }
 
     private Room findRoomByName(String roomName) {
         if (roomName == null) return null;
@@ -182,6 +186,7 @@ public class Server  extends JFrame {
                         printDisplay(room.roomName + "방에서 게임을 시작했습니다");
                         Message stateMsg = new Message(Message.MODE_GAME_START, room.p1State, room.p2State);
                         room.broadcasting(stateMsg);
+                        printRoomPlayersState(room);
                     }
                     else if (msg.getMode() == Message.MODE_CHAT) {
                         Room room = findRoomByUser(uid);
@@ -209,8 +214,7 @@ public class Server  extends JFrame {
                         // 변경된 상태를 모든 플레이어에게 방송
                         Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.p1State, room.p2State);
 
-                        printDisplay(room.roomName + "방에서 " + room.p1State.getName() + "의 (hp, cost, shield) : (" + room.p1State.getHp() + ", " + room.p1State.getCost() + ", " + room.p1State.getShield() + ")");
-                        printDisplay(room.roomName + "방에서 " + room.p2State.getName() + "의 (hp, cost, shield) : (" + room.p2State.getHp() + ", " + room.p2State.getCost() + ", " + room.p2State.getShield() + ")");
+                        printRoomPlayersState(room);
                         room.broadcasting(stateMsg);
 
                         if (room.p1State.getHp() <= 0) {
