@@ -158,6 +158,8 @@ public class Server  extends JFrame {
                         rooms.add(room);
                         printDisplay(uid + " 가 방 생성 : " + msg.getRoomName());
                         broadcasting(msg);
+                        Message returnMsg = new Message(Message.MODE_ENTER_ROOM, uid, msg.getRoomName());
+                        send(returnMsg);
                     }
                     else if (msg.getMode() == Message.MODE_ENTER_ROOM) {
                         Room room = findRoomByName(msg.getRoomName());
