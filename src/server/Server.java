@@ -30,7 +30,7 @@ public class Server  extends JFrame {
 
     public Server(int port) {
         super("Card Clash PvP Server");
-        setBounds(510, 0, 500, 400);
+        setBounds(1400, 0, 500, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         buildGUI();
         setVisible(true);

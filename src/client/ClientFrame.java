@@ -44,7 +44,7 @@ public class ClientFrame extends JFrame {
         serverPort = ServerInfo.getInstance().getPORT();
 
         setLayout(new BorderLayout());
-        setSize(500, 400); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
+        setSize(700, 500); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // 패널 생성 & 등록
