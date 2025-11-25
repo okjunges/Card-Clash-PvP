@@ -37,15 +37,13 @@ public class RoomListPanel extends JPanel {
         add(gridPanel, BorderLayout.CENTER);
 
         // ===== 하단 버튼 줄 =====
-        JPanel bottomPanel = new JPanel(new GridLayout(1, 3));
+        JPanel bottomPanel = new JPanel(new GridLayout(1, 2));
 
         JButton b_create = new JButton("방 만들기");
         JButton b_enter = new JButton("선택한 방 들어가기");
-        JButton b_title = new JButton("타이틀로");
 
         bottomPanel.add(b_create);
         bottomPanel.add(b_enter);
-        bottomPanel.add(b_title);
 
         add(bottomPanel, BorderLayout.SOUTH);
 
@@ -60,8 +58,6 @@ public class RoomListPanel extends JPanel {
 
             parent.requestCreateRoom(roomName);  // 서버에 요청
 
-            //------아래 코드는 임시 로컬용. 이후 삭제해야됌--------
-            addRoom(roomName);                   // 일단 로컬에서도 추가(임시코드 삭제)
         });
 
         // 선택한 방 들어가기
@@ -74,8 +70,6 @@ public class RoomListPanel extends JPanel {
             parent.requestEnterRoom(selectedRoomName);
         });
 
-        // 타이틀로
-        b_title.addActionListener(e -> parent.changeScreen("TITLE"));
     }
 
     // 방 버튼 클릭 시 처리
@@ -101,21 +95,7 @@ public class RoomListPanel extends JPanel {
         }
     }
 
-    // 새 방을 하나 추가 (현재 로컬 상태에서만) -----> 로컬테스트용 함수로 삭제해야됌!!!
-    public void addRoom(String roomName) {
-        List<String> current = new ArrayList<>();
-        for (JButton b : roomButtons) {
-            String text = b.getText();
-            if (text != null && !text.trim().isEmpty()) {
-                current.add(text);
-            }
-        }
-        current.add(roomName);
-
-        updateRoomList(current);
-    } //--------------------------------------------------------------
-
-    // 서버에서 전체 방 목록을 줄 때 쓸 수 있는 함수 (나중 확장용)
+    // 서버에서 전체 방 목록을 줄 때 쓸 수 있는 함수
     public void updateRoomList(List<String> rooms) {
         for (int i = 0; i < roomButtons.length; i++) {
             JButton b = roomButtons[i];

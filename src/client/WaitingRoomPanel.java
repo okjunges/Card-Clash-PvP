@@ -17,9 +17,6 @@ public class WaitingRoomPanel extends JPanel {
     private JLabel l_p2Name   = new JLabel("P2 : -");
     private JButton b_start   = new JButton("시작하기");
 
-    // 임시 테스트 버튼 (P2 입장 연출용) 이후 삭제해야됨!!!!!!!!!!!----------------
-    private JButton b_testP2  = new JButton("P2 입장 테스트");
-
     // 상태
     private boolean isOwner = false;
     private String roomName;
@@ -59,10 +56,9 @@ public class WaitingRoomPanel extends JPanel {
 
         add(centerPanel, BorderLayout.CENTER);
 
-        // 하단: 시작 버튼 + P2 테스트 버튼
+        // 하단: 시작 버튼
         JPanel bottomPanel = new JPanel(new GridLayout(1, 0, 10, 0));
         bottomPanel.add(b_start);
-        bottomPanel.add(b_testP2); // -----------이후 삭제
         add(bottomPanel, BorderLayout.SOUTH);
 
         // 기본은 비활성화
@@ -75,17 +71,6 @@ public class WaitingRoomPanel extends JPanel {
                 parent.requestGameStart();
             }
         });
-
-        // P2 입장 테스트용 (서버 없이 UI만 확인) ------------> 이후 삭제
-        b_testP2.addActionListener(e -> {
-            if (isOwner) {
-                // 내가 P1이면, 상대(P2)가 들어온 것처럼
-                setOpponentName("테스트P2");
-            } else {
-                // 내가 P2라면, 상대(P1)가 들어온 것처럼
-                setOpponentName("테스트P1");
-            }
-        }); // --------------위 버튼에 부착된 리스너는 삭제해야됨
     }
 
     // P1 입장 (방장)

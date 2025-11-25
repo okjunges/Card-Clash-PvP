@@ -9,6 +9,8 @@ import java.awt.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Vector;
 
 public class ClientFrame extends JFrame {
 
@@ -94,6 +96,9 @@ public class ClientFrame extends JFrame {
             // 로그인 메시지 전송
             sendMessage(new Message(Message.MODE_LOGIN, uid));
 
+            // 로그인 후 현재 방 목록 요청
+            sendMessage(new Message(Message.MODE_ROOM_LIST));
+
             System.out.println("서버 접속 완료: " + serverIP + ":" + serverPort);
             return true;
         } catch (IOException e) {
@@ -130,6 +135,10 @@ public class ClientFrame extends JFrame {
 
                             case Message.MODE_CHAT:
                                 handleChat(msg);
+                                break;
+
+                            case Message.MODE_ROOM_LIST:                   // ← 추가
+                                handleRoomList(msg);
                                 break;
 
                             default:
@@ -175,11 +184,7 @@ public class ClientFrame extends JFrame {
         sendMessage(new Message(Message.MODE_CREATE_ROOM, uid, roomName));
         System.out.println("방 만들기 요청: " + roomName);
 
-        // ----지금은 임시로 P1 대기방에 바로 입장시키기---- 임시코드로 아래단락은 지워야됌
-        currentRoomName = roomName;
-        waitingRoomPanel.enterAsOwner(uid, roomName);
-        changeScreen("WAITING");
-        // ---- 임시로 입장시킨 코드. 지우기 -----
+        sendMessage(new Message(Message.MODE_ROOM_LIST));
 
         // ⚠ 절대 여기서 currentRoomName을 설정하지 말 것!
         // 서버가 MODE_ENTER_ROOM 응답을 보내줄 때만 설정해야 동기화가 맞는다.
@@ -192,6 +197,8 @@ public class ClientFrame extends JFrame {
         sendMessage(new Message(Message.MODE_ENTER_ROOM, uid, roomName));
         System.out.println("방 들어가기 요청: " + roomName);
         currentRoomName = roomName;   // 들어간 방 기억
+
+        sendMessage(new Message(Message.MODE_ROOM_LIST));
     }
 
     // (임시) 종료 시 스레드/소켓 정리용 메서드
@@ -230,9 +237,6 @@ public class ClientFrame extends JFrame {
         // 서버에 게임시작 요청
         sendMessage(new Message(Message.MODE_GAME_START, uid, currentRoomName));
 
-        //---지금 단계에선 서버가 아직 없어도 테스트할 수 있게---
-        goToGameScreen(currentRoomName);
-        // ㄴ 지우기
         // 2) 화면 전환은 서버가 MODE_GAME_START 방송(for all players)을 보내면
         //    handleGameStart() -> goToGameScreen()에서 처리
     }
@@ -267,6 +271,20 @@ public class ClientFrame extends JFrame {
         gamePanel.appendChat(line);
     }
 
+    // 서버에서 방 목록 방송/응답 받았을 때
+    private void handleRoomList(Message msg) {
+        Vector<String> rooms = msg.getRoomNames();
+        if (rooms == null) return;
+
+        // RoomListPanel이 List<String> 기준이니까 변환해서 넘김
+        java.util.List<String> list = new ArrayList<>(rooms);
+
+        SwingUtilities.invokeLater(() -> roomListPanel.updateRoomList(list));
+    }
+
+    public static void main(String[] args) {
+        new ClientFrame();
+    }
 
 
 }
