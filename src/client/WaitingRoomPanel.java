@@ -90,7 +90,6 @@ public class WaitingRoomPanel extends JPanel {
         this.roomName = roomName;
 
         l_roomName.setText("방 이름: " + roomName);
-        l_p1Name.setText("P1 : 대기 중");
         l_p2Name.setText("P2 : " + guestName);
         b_start.setEnabled(false);
     }
@@ -102,5 +101,10 @@ public class WaitingRoomPanel extends JPanel {
         } else {
             l_p1Name.setText("P1 : " + opponentName);
         }
+    }
+
+    public String getPlayer1Name(){
+        String player1Name = l_p1Name.getText().trim().replace("P1 : ", "");
+        return player1Name;
     }
 }

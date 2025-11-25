@@ -127,6 +127,7 @@ public class ClientFrame extends JFrame {
                         switch (msg.getMode()) {
                             case Message.MODE_CREATE_ROOM:
                                 requestRoomList();
+                                responseEnterRoom(msg);
                                 break;
 
                             case Message.MODE_ENTER_ROOM:
@@ -205,6 +206,15 @@ public class ClientFrame extends JFrame {
         sendMessage(new Message(Message.MODE_ROOM_LIST));
     }
 
+    // 방 만들기 응답 처리
+    private void responseEnterRoom(Message msg) {
+        if (uid.equals(msg.getUserID())){
+            currentRoomName = msg.getRoomName();
+            waitingRoomPanel.enterAsOwner(uid, msg.getRoomName());
+            changeScreen("WAITING");
+        }
+    }
+
     // (임시) 종료 시 스레드/소켓 정리용 메서드
     public void disconnectFromServer() {
         try {
@@ -224,14 +234,21 @@ public class ClientFrame extends JFrame {
         String roomName = msg.getRoomName();
         String userId = msg.getUserID();
 
-        if (userId.equals(uid)) {
+        // 1. 내가 들어가려는 방이 맞는 지 확인 (아니면, 그냥 방 목록 조회 요청을 보내고 return)
+        if(!currentRoomName.equals(roomName)){
+            requestRoomList();
+            return;
+        }
+
+        // 2. waitingroomPanel의 p1이름이 ""이면 p2의 uid저장
+        if (waitingRoomPanel.getPlayer1Name().isEmpty()) {
             // 서버가 "너 입장 성공"을 보내면, 그 때 화면 전환 + P1/P2 UI 갱신
-            waitingRoomPanel.enterAsOwner(uid, roomName);
-            changeScreen("WAITING");
+            waitingRoomPanel.enterAsOwner(userId, roomName);
         } else {
             // 나중에 P2가 들어왔을 때 서버가 방송해줄 때 사용
-            waitingRoomPanel.enterAsGuest(userId, roomName);
+            waitingRoomPanel.enterAsGuest(uid, roomName);
         }
+        changeScreen("WAITING");
     }
 
     // P1이 "시작하기" 눌렀을 때 호출
@@ -279,8 +296,6 @@ public class ClientFrame extends JFrame {
     private void requestRoomList() {
         sendMessage(new Message(Message.MODE_ROOM_LIST));
     }
-
-
 
     // 서버에서 방 목록 방송/응답 받았을 때
     private void handleRoomList(Message msg) {
