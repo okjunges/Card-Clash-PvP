@@ -199,9 +199,9 @@ public class ClientFrame extends JFrame {
 
     // 방 들어가기 요청
     public void requestEnterRoom(String roomName) {
+        currentRoomName = roomName;   // 들어간 방 기억
         sendMessage(new Message(Message.MODE_ENTER_ROOM, uid, roomName));
         System.out.println("방 들어가기 요청: " + roomName);
-        currentRoomName = roomName;   // 들어간 방 기억
 
         sendMessage(new Message(Message.MODE_ROOM_LIST));
     }
@@ -211,6 +211,11 @@ public class ClientFrame extends JFrame {
         if (uid.equals(msg.getUserID())){
             currentRoomName = msg.getRoomName();
             waitingRoomPanel.enterAsOwner(uid, msg.getRoomName());
+            changeScreen("WAITING");
+        }
+        else if(currentRoomName == null) return;
+        else if(currentRoomName.equals(msg.getRoomName())){
+            waitingRoomPanel.enterAsOwner(msg.getUserID(), msg.getRoomName());
             changeScreen("WAITING");
         }
     }
@@ -240,13 +245,11 @@ public class ClientFrame extends JFrame {
             return;
         }
 
-        // 2. waitingroomPanel의 p1이름이 ""이면 p2의 uid저장
-        if (waitingRoomPanel.getPlayer1Name().isEmpty()) {
-            // 서버가 "너 입장 성공"을 보내면, 그 때 화면 전환 + P1/P2 UI 갱신
-            waitingRoomPanel.enterAsOwner(userId, roomName);
-        } else {
-            // 나중에 P2가 들어왔을 때 서버가 방송해줄 때 사용
-            waitingRoomPanel.enterAsGuest(uid, roomName);
+        if (uid.equals(userId)) {
+            waitingRoomPanel.enterAsGuest(userId, roomName);
+        }
+        else {
+            waitingRoomPanel.setOpponentName(userId);
         }
         changeScreen("WAITING");
     }
