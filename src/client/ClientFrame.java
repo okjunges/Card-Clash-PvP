@@ -240,6 +240,8 @@ public class ClientFrame extends JFrame {
         String roomName = msg.getRoomName();
         String userId = msg.getUserID();
 
+        if (currentRoomName == null || !currentRoomName.equals(roomName)) return;
+
         if (uid.equals(userId)) {
             waitingRoomPanel.enterAsGuest(userId, roomName);
             changeScreen("WAITING");
