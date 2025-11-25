@@ -1,6 +1,5 @@
 package common;
 
-import javax.swing.*;
 import java.io.Serializable;
 import java.util.Vector;
 
@@ -132,57 +131,5 @@ public class Message implements Serializable {
     }
     public Vector<String> getRoomNames() {
         return rooms;
-    }
-
-    // 예전 코드
-    public final static int MODE_LOGOUT = 0x200; // 기존 0x2 였던 것을 다른 값으로
-    public final static int MODE_TX_STRING = 0x10;
-    public final static int MODE_TX_FILE = 0x20;
-    public final static int MODE_TX_IMAGE = 0x40;
-    private ImageIcon image;
-    private long size;
-
-    public ImageIcon getImage() {
-        return image;
-    }
-
-    public void setImage(ImageIcon image) {
-        this.image = image;
-    }
-
-    public long getSize() {
-        return size;
-    }
-
-    public void setSize(long size) {
-        this.size = size;
-    }
-
-    public Message(String userID, int code, String message, ImageIcon image, long size) {
-        this.userID = userID;
-        this.mode = code;
-        this.message = message;
-        this.image = image;
-        this.size = size;
-    }
-
-    public Message(String userID, int code, String message, ImageIcon image) {
-        this(userID, code, message, image, 0);
-    }
-
-    public Message(String userID, int code) {
-        this(userID, code, null, null);
-    }
-
-    public Message(String userID, int code, String message) {
-        this(userID, code, message, null);
-    }
-
-    public Message(String userID, int code, ImageIcon image) {
-        this(userID, code, null, image);
-    }
-
-    public Message(String userID, int code, String filename, long size) {
-        this(userID, code, filename, null, size);
     }
 }
