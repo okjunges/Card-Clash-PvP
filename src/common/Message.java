@@ -2,6 +2,7 @@ package common;
 
 import javax.swing.*;
 import java.io.Serializable;
+import java.util.Vector;
 
 public class Message implements Serializable {
     // 모드
@@ -14,6 +15,7 @@ public class Message implements Serializable {
     public final static int MODE_SYNC_STATE = 0x40; // 전체 상태 전달
     public final static int MODE_TURN_END = 0x80; // 턴 종료
     public final static int MODE_GAME_END = 0x100; // 게임 종료
+    public final static int MODE_ROOM_LIST = 0x200; // 방 목록 조회
 
     // 카드 코드
     public final static int Strike = 1;
@@ -34,7 +36,10 @@ public class Message implements Serializable {
     private String message;
     private State p1;
     private State p2;
+    private Vector<String> rooms;
 
+    // 방 목록 요청
+    public Message(int mode) { this.mode = mode; }
     // 로그인, 게임 종료(패배한 userID), 턴종료(종료한 userID)
     public Message(int mode, String userID) {
         this.mode = mode;
@@ -63,6 +68,11 @@ public class Message implements Serializable {
         this.mode = mode;
         this.p1 = p1;
         this.p2 = p2;
+    }
+    // 방 목록 반환
+    public Message(int mode, Vector<String> rooms) {
+        this.mode = mode;
+        this.rooms = rooms;
     }
 
     public String getRoomName() {
@@ -119,6 +129,9 @@ public class Message implements Serializable {
 
     public void setP2(State p2) {
         this.p2 = p2;
+    }
+    public Vector<String> getRoomNames() {
+        return rooms;
     }
 
     // 예전 코드
