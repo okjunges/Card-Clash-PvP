@@ -164,6 +164,7 @@ public class Server  extends JFrame {
                     else if (msg.getMode() == Message.MODE_ENTER_ROOM) {
                         Room room = findRoomByName(msg.getRoomName());
                         if (room != null && !room.isReady()) {
+                            send(new Message(Message.MODE_ENTER_ROOM, room.player1.getUid(), room.roomName));
                             room.enterRoom(this);
                             printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
                             broadcasting(msg);
