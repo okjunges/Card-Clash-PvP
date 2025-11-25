@@ -44,7 +44,7 @@ public class ClientFrame extends JFrame {
         serverPort = ServerInfo.getInstance().getPORT();
 
         setLayout(new BorderLayout());
-        setSize(1000, 800); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
+        setSize(500, 400); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // 패널 생성 & 등록
@@ -131,6 +131,7 @@ public class ClientFrame extends JFrame {
                                 break;
 
                             case Message.MODE_ENTER_ROOM:
+                                requestRoomList();
                                 handleEnterRoom(msg);
                                 break;
 
@@ -239,19 +240,14 @@ public class ClientFrame extends JFrame {
         String roomName = msg.getRoomName();
         String userId = msg.getUserID();
 
-        // 1. 내가 들어가려는 방이 맞는 지 확인 (아니면, 그냥 방 목록 조회 요청을 보내고 return)
-        if(!currentRoomName.equals(roomName)){
-            requestRoomList();
-            return;
-        }
-
         if (uid.equals(userId)) {
             waitingRoomPanel.enterAsGuest(userId, roomName);
+            changeScreen("WAITING");
         }
         else {
             waitingRoomPanel.setOpponentName(userId);
+            changeScreen("WAITING");
         }
-        changeScreen("WAITING");
     }
 
     // P1이 "시작하기" 눌렀을 때 호출
