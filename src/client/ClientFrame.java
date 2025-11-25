@@ -125,6 +125,10 @@ public class ClientFrame extends JFrame {
 
                         // 모드에 따라 분기
                         switch (msg.getMode()) {
+                            case Message.MODE_CREATE_ROOM:
+                                requestRoomList();
+                                break;
+
                             case Message.MODE_ENTER_ROOM:
                                 handleEnterRoom(msg);
                                 break;
@@ -271,15 +275,19 @@ public class ClientFrame extends JFrame {
         gamePanel.appendChat(line);
     }
 
+    // 서버에 방 목록 요청
+    private void requestRoomList() {
+        sendMessage(new Message(Message.MODE_ROOM_LIST));
+    }
+
+
+
     // 서버에서 방 목록 방송/응답 받았을 때
     private void handleRoomList(Message msg) {
         Vector<String> rooms = msg.getRoomNames();
         if (rooms == null) return;
 
-        // RoomListPanel이 List<String> 기준이니까 변환해서 넘김
-        java.util.List<String> list = new ArrayList<>(rooms);
-
-        SwingUtilities.invokeLater(() -> roomListPanel.updateRoomList(list));
+        roomListPanel.updateRoomList(rooms);
     }
 
     public static void main(String[] args) {

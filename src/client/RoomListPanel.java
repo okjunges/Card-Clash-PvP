@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
 public class RoomListPanel extends JPanel {
 
@@ -96,7 +97,7 @@ public class RoomListPanel extends JPanel {
     }
 
     // 서버에서 전체 방 목록을 줄 때 쓸 수 있는 함수
-    public void updateRoomList(List<String> rooms) {
+    public void updateRoomList(Vector<String> rooms) {
         for (int i = 0; i < roomButtons.length; i++) {
             JButton b = roomButtons[i];
             if (i < rooms.size()) {
