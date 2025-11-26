@@ -31,6 +31,7 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
+
 ### VS Code ###
 .vscode/
 
@@ -41,4 +42,5 @@ bin/
 server.txt
 
 ### MANIFEST ###
-src/META-INF/MANIFEST.MF
+src/META-INF-Client/MANIFEST.MF
+src/META-INF-Server/MANIFEST.MF
