@@ -39,3 +39,6 @@ bin/
 
 ### Seerver IP & Port ###
 server.txt
+
+### MANIFEST ###
+src/META-INF/MANIFEST.MF
