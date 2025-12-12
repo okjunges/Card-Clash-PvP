@@ -16,18 +16,7 @@ public class Message implements Serializable {
     public final static int MODE_GAME_END = 0x100; // 게임 종료
     public final static int MODE_ROOM_LIST = 0x200; // 방 목록 조회
 
-    // 카드 코드
-    public final static int Strike = 1;
-    public final static int HeavyBlow = 2;
-    public final static int Pierce = 3;
-    public final static int SharpEdge = 4;
-    public final static int WeaknessStrike = 5;
-    public final static int Defend = 6;
-    public final static int IronWall = 7;
-    public final static int CounterGuard = 8;
-    public final static int ChargeUp = 9;
-    public final static int AdrenalineRush = 10;
-
+    private Card card;
     private String roomName;
     private String userID;
     private int mode;
@@ -57,10 +46,10 @@ public class Message implements Serializable {
         this.message = message;
     }
     // 카드 사용
-    public Message(int mode, String userID, int cardCode) {
+    public Message(int mode, String userID, Card card) {
         this.mode = mode;
         this.userID = userID;
-        this.cardCode = cardCode;
+        this.card = card;
     }
     // 상태 반환
     public Message(int mode, State p1, State p2) {
@@ -129,6 +118,11 @@ public class Message implements Serializable {
     public void setP2(State p2) {
         this.p2 = p2;
     }
+
+    public void setCard(Card card) { this.card = card; }
+
+    public Card getCard() { return card; }
+
     public Vector<String> getRoomNames() {
         return rooms;
     }

@@ -7,12 +7,16 @@ public class State implements Serializable {
     private int hp;
     private int cost;
     private int shield;
+    private int bonusDamage;
+    private int reflectDamage;
 
     public State(String name, int hp, int cost, int shield) {
         this.name = name;
         this.hp = hp;
         this.cost = cost;
         this.shield = shield;
+        this.bonusDamage = 0;
+        this.reflectDamage = 0;
     }
 
     public String getName() {
@@ -46,4 +50,20 @@ public class State implements Serializable {
     public void setShield(int shield) {
         this.shield = shield;
     }
+
+    public void addShield(int shield) {
+        this.shield += shield;
+    }
+
+    public void setBonusDamage(int bonusDamage) { this.bonusDamage = bonusDamage; }
+
+    public int getBonusDamage() { return bonusDamage; }
+
+    public void resetBonusDamage() { this.bonusDamage = 0; }
+
+    public void setReflectDamage(int reflectDamage) { this.reflectDamage = reflectDamage; }
+
+    public int getReflectDamage() { return reflectDamage; }
+
+    public void resetReflectDamage() { this.reflectDamage = 0; }
 }
