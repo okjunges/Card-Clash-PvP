@@ -9,8 +9,8 @@ public class Main {
 
         new ClientFrame();
         new ClientFrame();
-        new ClientFrame();
-        new ClientFrame();
+//        new ClientFrame();
+//        new ClientFrame();
         Server server = new Server(port);
     }
 }

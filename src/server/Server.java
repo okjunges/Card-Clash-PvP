@@ -112,15 +112,17 @@ public class Server  extends JFrame {
         t_display.setCaretPosition(t_display.getDocument().getLength());
     }
     public void printRoomPlayersState(Room room) {
-        printDisplay(room.roomName + "방에서 " + room.p1State.getName() + "의 (hp, cost, shield) : (" + room.p1State.getHp() + ", " + room.p1State.getCost() + ", " + room.p1State.getShield() + ")");
-        printDisplay(room.roomName + "방에서 " + room.p2State.getName() + "의 (hp, cost, shield) : (" + room.p2State.getHp() + ", " + room.p2State.getCost() + ", " + room.p2State.getShield() + ")");
+        printDisplay(room.getRoomName() + "방에서 " + room.getP1State().getName() + "의 (hp, cost, shield) : (" + room.getP1State().getHp() + ", " + room.getP1State().getCost() + ", " + room.getP1State().getShield() + ")");
+        printDisplay(room.getRoomName() + "방에서 " + room.getP2State().getName() + "의 (hp, cost, shield) : (" + room.getP2State().getHp() + ", " + room.getP2State().getCost() + ", " + room.getP2State().getShield() + ")");
     }
 
     private Room findRoomByName(String roomName) {
         if (roomName == null) return null;
 
-        for (Room r : rooms) {
-            if (r.roomName.equals(roomName)) return r;
+        synchronized(rooms) {
+            for (Room r : rooms) {
+                if (r.getRoomName().equals(roomName)) return r;
+            }
         }
         return null;
     }
@@ -128,16 +130,18 @@ public class Server  extends JFrame {
     private Room findRoomByUser(String uid) {
         if (uid == null) return null;
 
-        for (Room r : rooms) {
-            if ((r.player1 != null && r.player1.getUid().equals(uid)) ||
-                    (r.player2 != null && r.player2.getUid().equals(uid))) {
-                return r;
+        synchronized (rooms) {
+            for (Room r : rooms) {
+                if ((r.getPlayer1() != null && r.getPlayer1().getUid().equals(uid)) ||
+                        (r.getPlayer2() != null && r.getPlayer2().getUid().equals(uid))) {
+                    return r;
+                }
             }
         }
         return null;
     }
 
-    private class ClientHandler extends Thread {
+    public class ClientHandler extends Thread {
         private Socket clientSocket;
         private ObjectOutputStream out;
         private String uid;
@@ -149,112 +153,34 @@ public class Server  extends JFrame {
                 ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
                 out = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
-                String message;
                 Message msg;
                 while ((msg = (Message)in.readObject()) != null) {
                     if (msg.getMode() == Message.MODE_LOGIN) {
-                        uid = msg.getUserID();
-                        printDisplay("새 참가자 : " + uid);
-                        printDisplay("현재 참가자 수 : " + users.size());
+                        login(msg);
                     }
                     else if (msg.getMode() == Message.MODE_CREATE_ROOM) {
-                        Room room = new Room(msg.getRoomName(), this);
-                        rooms.add(room);
-                        printDisplay(uid + " 가 방 생성 : " + msg.getRoomName());
-                        broadcasting(msg);
+                        createRoom(msg);
                     }
                     else if (msg.getMode() == Message.MODE_ENTER_ROOM) {
-                        Room room = findRoomByName(msg.getRoomName());
-                        if (room != null && !room.isReady()) {
-                            send(new Message(Message.MODE_CREATE_ROOM, room.player1.getUid(), room.roomName));
-                            room.enterRoom(this);
-                            printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
-                            broadcasting(msg);
-                        }
-                        else { printDisplay(msg.getRoomName() + " 방이 없습니다."); }
+                        enterRoom(msg);
                     }
                     else if (msg.getMode() == Message.MODE_GAME_START) {
-                        Room room = findRoomByUser(uid);
-                        if (room == null) {
-                            printDisplay("게임 시작 실패 : 방을 찾을 수 없음 - " + uid);
-                            continue;
-                        }
-                        if (!room.isReady()) {
-                            printDisplay("게임 시작 실패 : " + room.roomName + "방 인원 부족 - " + room.roomName);
-                            continue;
-                        }
-                        printDisplay(room.roomName + "방에서 게임을 시작했습니다");
-                        Message stateMsg = new Message(Message.MODE_GAME_START, room.p1State, room.p2State);
-                        room.broadcasting(stateMsg);
-                        printRoomPlayersState(room);
+                        gameStart(msg);
                     }
                     else if (msg.getMode() == Message.MODE_CHAT) {
-                        Room room = findRoomByUser(uid);
-                        if (room == null) {
-                            printDisplay("채팅 실패 : 방을 찾을 수 없음 - " + uid);
-                            continue;
-                        }
-                        message = msg.getMessage();
-                        printDisplay(room.roomName + "방에서 " + uid + "의 메세지 : " + message);
-                        room.broadcasting(msg);
+                        chat(msg);
                     }
                     else if (msg.getMode() == Message.MODE_USE_CARD) {
-                        // 플레이어가 속한 방 찾기
-                        Room room = findRoomByUser(uid);
-                        if (room == null) {
-                            printDisplay("카드 사용 실패 : 방을 찾을 수 없음 - " + uid);
-                            continue;
-                        }
-                        room.broadcasting(msg);
-                        printDisplay(room.roomName + "방에서 " + uid + "가 " + msg.getCardCode() + "번 카드 사용");
-
-                        // 해당 카드 효과를 방에 적용
-                        room.applyCard(msg.getCardCode(), this);
-
-                        // 변경된 상태를 모든 플레이어에게 방송
-                        Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.p1State, room.p2State);
-
-                        printRoomPlayersState(room);
-                        room.broadcasting(stateMsg);
-
-                        if (room.p1State.getHp() <= 0) {
-                            printDisplay(room.roomName + "에서 " + room.player1.getUid() + "의 hp가 0으로 패배");
-                            Message endMsg = new Message(Message.MODE_GAME_END, room.player1.getUid());
-                            room.broadcasting(endMsg);
-                            finishGame(room);
-                        }
-                        else if (room.p2State.getHp() <= 0) {
-                            printDisplay(room.roomName + "에서 " + room.player2.getUid() + "의 hp가 0으로 패배");
-                            Message endMsg = new Message(Message.MODE_GAME_END, room.player2.getUid());
-                            room.broadcasting(endMsg);
-                            finishGame(room);
-                        }
+                        useCard(msg);
                     }
                     else if (msg.getMode() == Message.MODE_TURN_END) {
-                        Room room = findRoomByUser(uid);
-                        if (room == null) {
-                            printDisplay("턴 종료 실패 : 방을 찾을 수 없음 - " + uid);
-                            continue;
-                        }
-                        printDisplay(room.roomName + "에서 " + msg.getUserID() + "의 턴 종료");
-                        room.broadcasting(msg);
+                        turnEnd(msg);
                     }
                     else if (msg.getMode() == Message.MODE_GAME_END) {
-                        Room room = findRoomByUser(msg.getUserID());
-                        if (room == null) {
-                            printDisplay("게임 종료 실패 : 방을 찾을 수 없음 - " + uid);
-                            continue;
-                        }
-                        printDisplay(room.roomName + "에서 " + msg.getUserID() + "가 항복");
-                        room.broadcasting(msg);
-                        finishGame(room);
+                        gameEnd(msg);
                     }
                     else if (msg.getMode() == Message.MODE_ROOM_LIST) {
-                        Vector<String> list = new Vector<>();
-                        // 현재 서버에 있는 방 중에 player2가 아직 들어가지 않은(즉, 현재 플레이어가 들어갈 수 있는) 방 목록 반환
-                        for (Room r : rooms) { if (r.player2 == null) { list.add(r.roomName); } }
-                        Message returnMsg = new Message(Message.MODE_ROOM_LIST, list);
-                        send(returnMsg);
+                        sendRoomList();
                     }
                 }
             } catch (ClassNotFoundException e) {
@@ -269,7 +195,7 @@ public class Server  extends JFrame {
                     if (room != null) {
                         // 플레이어가 강제 종료했을 때 해당 플레이어의 항복 처리 이후 게임 방 삭제
                         room.broadcasting(new Message(Message.MODE_GAME_END, uid));
-                        printDisplay(room.roomName + "에서 " + uid + "가 항복");
+                        printDisplay(room.getRoomName() + "에서 " + uid + "가 항복");
                         finishGame(room);
                     }
                     users.removeElement(this);
@@ -293,63 +219,197 @@ public class Server  extends JFrame {
             }
         }
 
-        public void broadcasting(Message msg) { for (ClientHandler thread : users) { thread.send(msg); } }
+        public void broadcasting(Message msg) {
+            synchronized(users) {
+                for (ClientHandler thread : users) {
+                    thread.send(msg);
+                }
+            }
+        }
+
+        private void login(Message msg) {
+            String id = msg.getUserID();
+            boolean success = false;
+
+            // 중복되는 id의 사용자가 존재하는 것을 방지하기 위해 synchronized 키워드를 이용한 임계구역 설정 및 동시성 제어
+            synchronized (users) {
+                boolean duplicate = false;
+                for (ClientHandler user : users) {
+                    String otherId = user.getUid();
+                    if (otherId != null && otherId.equals(id)) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    uid = id;
+                    success = true;
+                }
+            }
+            if (success) {
+                printDisplay("새 참가자 : " + uid);
+                printDisplay("현재 참가자 수 : " + users.size());
+            } else {
+                msg.setMessage("fail");
+                printDisplay("(로그인 실패) 이미 존재하는 ID : " + id);
+            }
+            send(msg);
+        }
+
+        private void createRoom(Message msg) {
+            String name = msg.getRoomName();
+            boolean success = false;
+
+            // 중복되는 방 이름을 없애기 위해 synchronized 키워드를 이용한 임계구역 설정 및 동시성 제어
+            synchronized (rooms) {
+                boolean duplicate = false;
+                for (Room room : rooms) {
+                    if (room.getRoomName().equals(name)) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    Room room = new Room(name, this);
+                    rooms.add(room);
+                    success = true;
+                }
+            }
+
+            if (success) {
+                printDisplay(uid + " 가 방 생성 : " + name);
+            } else {
+                msg.setMessage("fail");
+                printDisplay("(방 생성 실패) 이미 존재하는 방 : " + name);
+            }
+
+            broadcasting(msg);
+        }
+
+        private void enterRoom(Message msg) {
+            Room room = findRoomByName(msg.getRoomName());
+            if (room != null && !room.isReady()) {
+                send(new Message(Message.MODE_CREATE_ROOM, room.getPlayer1().getUid(), room.getRoomName()));
+                room.enterRoom(this);
+                printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
+                broadcasting(msg);
+            }
+            else { printDisplay(msg.getRoomName() + " 방이 없습니다."); }
+        }
+
+        private void gameStart(Message msg) {
+            Room room = findRoomByUser(uid);
+            if (room == null) {
+                printDisplay("게임 시작 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+            if (!room.isReady()) {
+                printDisplay("게임 시작 실패 : " + room.getRoomName() + "방 인원 부족 - " + room.getRoomName());
+                return;
+            }
+            printDisplay(room.getRoomName() + "방에서 게임을 시작했습니다");
+            Message stateMsg = new Message(Message.MODE_GAME_START, room.getP1State(), room.getP2State());
+            room.broadcasting(stateMsg);
+            printRoomPlayersState(room);
+        }
+
+        private void chat(Message msg) {
+            Room room = findRoomByUser(uid);
+            if (room == null) {
+                printDisplay("채팅 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+            String message = msg.getMessage();
+            printDisplay(room.getRoomName() + "방에서 " + uid + "의 메세지 : " + message);
+            room.broadcasting(msg);
+        }
+
+        private void useCard(Message msg) {
+            // 플레이어가 속한 방 찾기
+            Room room = findRoomByUser(uid);
+            if (room == null) {
+                printDisplay("카드 사용 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+
+            // 해당 카드 효과를 방에 적용
+            boolean state = room.applyCard(msg.getCard(), this);
+            if (!state) {
+                printDisplay(room.getRoomName() + "방에서 " + uid + "가 코스트 부족으로 " + msg.getCard().getCardName() + " 카드 사용 실패");
+                msg.setMessage("fail");
+                msg.setCard(null);
+                send(msg);
+                return;
+            }
+            printDisplay(room.getRoomName() + "방에서 " + uid + "가 " + msg.getCard().getCardName() + " 카드 사용");
+            room.broadcasting(msg);
+
+            // 변경된 상태를 모든 플레이어에게 방송
+            Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
+
+            printRoomPlayersState(room);
+            room.broadcasting(stateMsg);
+
+            if (room.getP1State().getHp() <= 0) {
+                printDisplay(room.getRoomName() + "에서 " + room.getPlayer1().getUid() + "의 hp가 0으로 패배");
+                Message endMsg = new Message(Message.MODE_GAME_END, room.getPlayer1().getUid());
+                room.broadcasting(endMsg);
+                finishGame(room);
+            }
+            else if (room.getP2State().getHp() <= 0) {
+                printDisplay(room.getRoomName() + "에서 " + room.getPlayer2().getUid() + "의 hp가 0으로 패배");
+                Message endMsg = new Message(Message.MODE_GAME_END, room.getPlayer2().getUid());
+                room.broadcasting(endMsg);
+                finishGame(room);
+            }
+        }
+
+        private void turnEnd(Message msg) {
+            Room room = findRoomByUser(uid);
+            if (room == null) {
+                printDisplay("턴 종료 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+            // 턴 관리 후 턴이 끝난 플레이어만 초기화
+            room.getP1State().resetBonusDamage();
+            room.getP2State().resetBonusDamage();
+            printDisplay(room.getRoomName() + "에서 " + msg.getUserID() + "의 턴 종료");
+            room.broadcasting(msg);
+        }
+
+        private void gameEnd(Message msg) {
+            Room room = findRoomByUser(msg.getUserID());
+            if (room == null) {
+                printDisplay("게임 종료 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+            printDisplay(room.getRoomName() + "에서 " + msg.getUserID() + "가 항복");
+            room.broadcasting(msg);
+            finishGame(room);
+        }
+
+        private void sendRoomList() {
+            Vector<String> list = new Vector<>();
+            // 현재 서버에 있는 방 중에 player2가 아직 들어가지 않은(즉, 현재 플레이어가 들어갈 수 있는) 방 목록 반환
+            synchronized (rooms) {
+                for (Room r : rooms) { if (r.getPlayer2() == null) { list.add(r.getRoomName()); } }
+            }
+            Message returnMsg = new Message(Message.MODE_ROOM_LIST, list);
+            send(returnMsg);
+        }
 
         @Override
         public void run() { receiveMessages(clientSocket); }
 
         public String getUid() { return uid; }
         public void finishGame(Room room) {
-            printDisplay(room.roomName + " 게임 종료");
+            printDisplay(room.getRoomName() + " 게임 종료");
             // 서버에서 방만 삭제
-            rooms.remove(room);
+            synchronized (rooms) { rooms.remove(room); }
         }
     }
 
-    public class Room {
-        String roomName;
-        ClientHandler player1;
-        ClientHandler player2;
-        State p1State;
-        State p2State;
 
-        Room(String roomName, ClientHandler player1) {
-            this.roomName = roomName;
-            this.player1 = player1;
-            this.p1State = new State(player1.getUid(), 30, 3, 0);
-        }
-        public void enterRoom(ClientHandler player2) {
-            this.player2 = player2;
-            this.p2State = new State(player2.getUid(), 30, 3, 0);
-        }
-        public boolean isReady() {
-            return player1 != null && player2 != null;
-        }
-        public State getStateOf(ClientHandler handler) {
-            if (handler == player1) return p1State;
-            else if (handler == player2) return p2State;
-            else return null;
-        }
-        public State getOpponentStateOf(ClientHandler handler) {
-            if (handler == player1) return p2State;
-            else if (handler == player2) return p1State;
-            else return null;
-        }
-        public void applyCard(int cardCode, ClientHandler caster) {
-            State me = getStateOf(caster);
-            State enemy = getOpponentStateOf(caster);
-
-            switch (cardCode) {
-                case Message.Strike:
-                    break;
-            }
-        }
-
-        public void broadcasting(Message msg) {
-            if (player1 != null) player1.send(msg);
-            if (player2 != null) player2.send(msg);
-        }
-    }
 
     public static void main(String[] args) {
         int port = ServerInfo.getInstance().getPORT();
