@@ -127,7 +127,7 @@ public class Server  extends JFrame {
             int remain = room.getRemainingSec(nowMs);
             if (remain == 60 || remain == 50 || remain == 30 || remain == 10) {
                 if (room.getLastLoggedRemain() != remain) {
-                    printDisplay(room.getRoomName() + "방에서 남은 시간[60, 50, 30, 10] : " + remain);
+                    printDisplay(room.getRoomName() + "방에서 턴 수 : " + room.getTurnNumber() + ", " + room.getCurrentTurnUid() + "의 턴 남은 시간 : " + remain + "  [60, 50, 30, 10]");
                     room.setLastLoggedRemain(remain);
                 }
             }
