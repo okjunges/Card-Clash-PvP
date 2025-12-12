@@ -12,11 +12,11 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketException;
+import java.net.*;
 import java.util.Vector;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Server  extends JFrame {
     private JTextArea t_display = new JTextArea("");
@@ -27,6 +27,14 @@ public class Server  extends JFrame {
     private Thread clientThread;
     private Vector<ClientHandler> users = new Vector<ClientHandler>();
     private Vector<Room> rooms = new Vector<Room>();
+
+    // UDP 통신
+    private DatagramSocket udpSendSocket;
+    // 서버 시간 스케줄러(내부적으로 스레드 존재)
+    private ScheduledExecutorService timerExec;
+    // 0.3초에 1번씩 턴 시간 보내기
+    private static final long TIMER_TICK_MS = 300;
+    private UdpTimerDispatcher udpDispatcher;
 
     public Server(int port) {
         super("Card Clash PvP Server");
@@ -41,6 +49,7 @@ public class Server  extends JFrame {
             public void run() { startServer(); }
         });
         acceptThread.start();
+        initUdpTimerSystem();
     }
     public void buildGUI() {
         add(createDisplayPanel(), BorderLayout.CENTER);
@@ -63,6 +72,8 @@ public class Server  extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 System.out.println("server 종료");
+                timerExec.shutdown();
+                udpSendSocket.close();
                 System.exit(0);
             }
         });
@@ -76,6 +87,52 @@ public class Server  extends JFrame {
             e.printStackTrace();
         }
         return localAddr;
+    }
+
+    // 구글링을 통해 공부하며 코드 작성 (0.5초마다 서버에서 클라이언트에게 턴 시간 전송)
+    // UDP 소켓을 먼저 만들고, 스케줄러를 만들고, 그 스케줄러는 TIMER_TICK_MS 초마다 tickTimersAndBroadcast() 이 함수를 실행
+    private void initUdpTimerSystem() {
+        try {
+            udpSendSocket = new DatagramSocket();
+            udpDispatcher = new UdpTimerDispatcher(udpSendSocket);
+            timerExec = Executors.newSingleThreadScheduledExecutor();
+
+            timerExec.scheduleAtFixedRate(() -> {
+                try {
+                    tickTimersAndBroadcast();
+                } catch (Exception e) {
+                    // 타이머 스레드 죽지 않게 잡아두기
+                    System.err.println("UDP Timer loop unexpected exception : " + e.getMessage());
+                }
+            }, 0, TIMER_TICK_MS, TimeUnit.MILLISECONDS); // 첫번쨰 인자(0) : 서버 시작하자마자를 의미
+
+        } catch (SocketException e) {
+            throw new RuntimeException("UDP 송신 소켓 생성 실패", e);
+        }
+    }
+    private void tickTimersAndBroadcast() {
+        long nowMs = System.currentTimeMillis();
+
+        Vector<Room> snapshot;
+        synchronized (rooms) {
+            snapshot = new Vector<>(rooms);
+        }
+        for (Room room : snapshot) {
+            if (!room.isGameRunning()) continue;
+
+            room.forceTurnEnd(nowMs);
+
+            if (!room.isGameRunning()) continue;
+
+            int remain = room.getRemainingSec(nowMs);
+            if (remain == 60 || remain == 50 || remain == 30 || remain == 10) {
+                if (room.getLastLoggedRemain() != remain) {
+                    printDisplay(room.getRoomName() + "방에서 턴 수 : " + room.getTurnNumber() + ", " + room.getCurrentTurnUid() + "의 턴 남은 시간 : " + remain + "  [60, 50, 30, 10]");
+                    room.setLastLoggedRemain(remain);
+                }
+            }
+            udpDispatcher.send(room, remain);
+        }
     }
     public void startServer() {
         Socket clientSocket = null;
@@ -108,8 +165,12 @@ public class Server  extends JFrame {
         }
     }
     public void printDisplay(String msg) {
-        t_display.append(msg + "\n");
-        t_display.setCaretPosition(t_display.getDocument().getLength());
+        // Swing은 스레드-세이프가 아니기 때문에 EDT(이벤트 디스패치 스레드)에서만 UI를 만져야 문제 발생 X
+        // 스케줄러 스레드와 같은 다른 스레드에서 호출할 경우 랜덤하여 UI가 꼬이거나 멈추는 경우가 생길 수 있어 해당 부분을 방지하기 위해 처리
+        SwingUtilities.invokeLater(() -> {
+            t_display.append(msg + "\n");
+            t_display.setCaretPosition(t_display.getDocument().getLength());
+        });
     }
     public void printRoomPlayersState(Room room) {
         printDisplay(room.getRoomName() + "방에서 " + room.getP1State().getName() + "의 (hp, cost, shield) : (" + room.getP1State().getHp() + ", " + room.getP1State().getCost() + ", " + room.getP1State().getShield() + ")");
@@ -145,6 +206,7 @@ public class Server  extends JFrame {
         private Socket clientSocket;
         private ObjectOutputStream out;
         private String uid;
+        private int udpPort;
 
         public ClientHandler(Socket clientSocket) { this.clientSocket = clientSocket; }
 
@@ -230,6 +292,7 @@ public class Server  extends JFrame {
         private void login(Message msg) {
             String id = msg.getUserID();
             boolean success = false;
+            udpPort = msg.getUdpPort();
 
             // 중복되는 id의 사용자가 존재하는 것을 방지하기 위해 synchronized 키워드를 이용한 임계구역 설정 및 동시성 제어
             synchronized (users) {
@@ -247,7 +310,7 @@ public class Server  extends JFrame {
                 }
             }
             if (success) {
-                printDisplay("새 참가자 : " + uid);
+                printDisplay("새 참가자 : " + uid + "의 UDP Port : " + udpPort);
                 printDisplay("현재 참가자 수 : " + users.size());
             } else {
                 msg.setMessage("fail");
@@ -288,13 +351,16 @@ public class Server  extends JFrame {
 
         private void enterRoom(Message msg) {
             Room room = findRoomByName(msg.getRoomName());
-            if (room != null && !room.isReady()) {
-                send(new Message(Message.MODE_CREATE_ROOM, room.getPlayer1().getUid(), room.getRoomName()));
-                room.enterRoom(this);
-                printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
-                broadcasting(msg);
+            synchronized (rooms) {
+                if (room != null && !room.isReady()) {
+                    send(new Message(Message.MODE_CREATE_ROOM, room.getPlayer1().getUid(), room.getRoomName()));
+                    room.enterRoom(this);
+                    printDisplay(uid + " 가 방 입장 : " + msg.getRoomName());
+                    broadcasting(msg);
+                } else {
+                    printDisplay(msg.getRoomName() + " 방이 없습니다.");
+                }
             }
-            else { printDisplay(msg.getRoomName() + " 방이 없습니다."); }
         }
 
         private void gameStart(Message msg) {
@@ -307,8 +373,12 @@ public class Server  extends JFrame {
                 printDisplay("게임 시작 실패 : " + room.getRoomName() + "방 인원 부족 - " + room.getRoomName());
                 return;
             }
+
+            long nowMs = System.currentTimeMillis();
+            room.startGame(nowMs);
+
             printDisplay(room.getRoomName() + "방에서 게임을 시작했습니다");
-            Message stateMsg = new Message(Message.MODE_GAME_START, room.getP1State(), room.getP2State());
+            Message stateMsg = new Message(Message.MODE_GAME_START, room.getCurrentTurnUid(), room.getTurnNumber(), room.getP1State(), room.getP2State());
             room.broadcasting(stateMsg);
             printRoomPlayersState(room);
         }
@@ -329,6 +399,10 @@ public class Server  extends JFrame {
             Room room = findRoomByUser(uid);
             if (room == null) {
                 printDisplay("카드 사용 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+            if (!room.getCurrentTurnUid().equals(msg.getUserID())) {
+                printDisplay("카드 사용 무시: 현재 턴 = " + room.getCurrentTurnUid() + ", 요청자 = " + msg.getUserID());
                 return;
             }
 
@@ -370,11 +444,27 @@ public class Server  extends JFrame {
                 printDisplay("턴 종료 실패 : 방을 찾을 수 없음 - " + uid);
                 return;
             }
-            // 턴 관리 후 턴이 끝난 플레이어만 초기화
-            room.getP1State().resetBonusDamage();
-            room.getP2State().resetBonusDamage();
-            printDisplay(room.getRoomName() + "에서 " + msg.getUserID() + "의 턴 종료");
-            room.broadcasting(msg);
+            synchronized (room) {
+                if (!uid.equals(msg.getUserID())) {
+                    printDisplay("턴 종료 무시: uid = " + uid + ", 요청자 = " + msg.getUserID());
+                    return;
+                }
+                // 현재 턴인 유저가 턴 종료한 것이 맞는지 확인
+                if (!room.getCurrentTurnUid().equals(msg.getUserID())) {
+                    printDisplay("턴 종료 무시: 현재 턴 = " + room.getCurrentTurnUid() + ", 요청자 = " + msg.getUserID());
+                    return;
+                }
+
+                printDisplay(room.getRoomName() + "에서 " + room.getCurrentTurnUid() + "의 턴 종료");
+
+                long nowMs = System.currentTimeMillis();
+                room.changeTurn(nowMs);
+
+                printDisplay(room.getRoomName() + "에서 " + room.getTurnNumber() + "턴의 " + room.getCurrentTurnUid() + " 시작");
+
+                Message endMsg = new Message(Message.MODE_TURN_END, room.getCurrentTurnUid(), room.getTurnNumber());
+                room.broadcasting(endMsg);
+            }
         }
 
         private void gameEnd(Message msg) {
@@ -398,12 +488,16 @@ public class Server  extends JFrame {
             send(returnMsg);
         }
 
+        public Socket getClientSocket() { return clientSocket; }
+        public int getUdpPort() { return udpPort; }
+
         @Override
         public void run() { receiveMessages(clientSocket); }
 
         public String getUid() { return uid; }
         public void finishGame(Room room) {
             printDisplay(room.getRoomName() + " 게임 종료");
+            room.endGame();
             // 서버에서 방만 삭제
             synchronized (rooms) { rooms.remove(room); }
         }
