@@ -25,13 +25,27 @@ public class Message implements Serializable {
     private State p1;
     private State p2;
     private Vector<String> rooms;
+    private int udpPort;
+    private int turn;
 
     // 방 목록 요청
     public Message(int mode) { this.mode = mode; }
-    // 로그인, 게임 종료(패배한 userID), 턴종료(종료한 userID)
+    // 게임 종료(패배한 userID), (클라)턴 종료 알림(종료한 userID)
     public Message(int mode, String userID) {
         this.mode = mode;
         this.userID = userID;
+    }
+    // 로그인
+    public Message(int mode, int udpPort, String userID) {
+        this.mode = mode;
+        this.userID = userID;
+        this.udpPort = udpPort;
+    }
+    // (서버)턴종료 - 다음 턴 사람의 id, 다음에 시작된 턴 수
+    public Message(int mode, String userID, int nextTurn) {
+        this.mode = mode;
+        this.userID = userID;
+        this.turn = nextTurn;
     }
     // 방만들기, 들어가기
     public Message(int mode, String userID, String roomName) {
@@ -50,6 +64,14 @@ public class Message implements Serializable {
         this.mode = mode;
         this.userID = userID;
         this.card = card;
+    }
+    // 게임 시작
+    public Message(int mode, String turnUid, int nextTurn, State p1, State p2) {
+        this.turn = nextTurn;
+        this.userID = turnUid;
+        this.mode = mode;
+        this.p1 = p1;
+        this.p2 = p2;
     }
     // 상태 반환
     public Message(int mode, State p1, State p2) {
@@ -122,6 +144,14 @@ public class Message implements Serializable {
     public void setCard(Card card) { this.card = card; }
 
     public Card getCard() { return card; }
+
+    public void setTurn(int turn) { this.turn = turn; }
+
+    public int getTurn() { return turn; }
+
+    public void setUdpPort(int udpPort) { this.udpPort = udpPort; }
+
+    public int getUdpPort() { return udpPort; }
 
     public Vector<String> getRoomNames() {
         return rooms;
