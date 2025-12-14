@@ -13,8 +13,6 @@ import java.util.ArrayList;
 import java.util.Vector;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 
@@ -64,7 +62,7 @@ public class ClientFrame extends JFrame {
         serverPort = ServerInfo.getInstance().getPORT();
 
         setLayout(new BorderLayout());
-        setSize(700, 500); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
+        setSize(1000, 800); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // 패널 생성 & 등록
@@ -265,6 +263,18 @@ public class ClientFrame extends JFrame {
         udpReceiveThread.start();
     }
 
+    private void stopUdpTimerReceiver() {
+        // 스레드 종료 조건 깨기
+        udpReceiveThread = null;
+
+        // receive() 블로킹을 깨기 위해 소켓을 닫는다
+        if (udpSocket != null && !udpSocket.isClosed()) {
+            udpSocket.close();
+        }
+
+        udpSocket = null;
+    }
+
 
     // 로그인 응답 처리
     private void handleLogin(Message msg) {
@@ -322,6 +332,12 @@ public class ClientFrame extends JFrame {
 
     // 방 만들기 응답 처리
     private void responseEnterRoom(Message msg) {
+        // ===== 방 이름 중복 fail 처리 =====
+        if ("fail".equals(msg.getMessage())) {
+            JOptionPane.showMessageDialog(this, "방 생성 실패: 이미 존재하는 방 이름입니다.");
+            return;
+        }
+
         if (uid.equals(msg.getUserID())){
             currentRoomName = msg.getRoomName();
             waitingRoomPanel.enterAsOwner(uid, msg.getRoomName());
@@ -413,13 +429,20 @@ public class ClientFrame extends JFrame {
         drawCards(5);
     }
 
-    // 실제 화면 전환 + 방 이름 세팅
     private void goToGameScreen(String roomName) {
         gamePanel.setRoomName(roomName);
         changeScreen("GAME");
-        gamePanel.appendChat("시스템: 게임이 시작되었습니다.");
 
-        startUdpTimerReceiver(); // 추가
+        try {
+            if (udpSocket == null || udpSocket.isClosed()) {
+                udpSocket = new DatagramSocket(udpPort); // 너가 login에서 정한 udpPort로 바인딩하는 구조면 이걸
+                // 혹은 new DatagramSocket(0) 구조면 그 방식 그대로
+            }
+        } catch (Exception e) {
+            System.out.println("UDP 소켓 생성 오류: " + e.getMessage());
+        }
+
+        startUdpTimerReceiver();
     }
 
     // 서버에서 채팅 방송
@@ -463,6 +486,17 @@ public class ClientFrame extends JFrame {
         // 내 카드면 손패에서 1장 제거(서버가 성공 방송을 보냈을 때만 제거)
         if (uid != null && uid.equals(msg.getUserID()) && used != null) {
             removeOneCardFromMyHand(used);
+
+            // ===== 카드 드로우 효과 (클라이언트 처리) =====
+            if (used instanceof common.CardChargeUp) {
+                drawCards(1);
+                gamePanel.appendBattleLog("시스템: Charge Up 효과 - 카드 1장 드로우");
+            }
+            else if (used instanceof common.CardAdrenalineRush) {
+                drawCards(2);
+                gamePanel.appendBattleLog("시스템: Adrenaline Rush 효과 - 카드 2장 드로우");
+            }
+
             gamePanel.setMyHand(myHand);
         }
     }
@@ -483,8 +517,6 @@ public class ClientFrame extends JFrame {
             if (!currentRoomName.equals(msg.getRoomName())) return;
         }
         System.out.println("SYNC_STATE 수신: p1Cost=" + msg.getP1().getCost() + ", p2Cost=" + msg.getP2().getCost());
-        gamePanel.updateState(msg.getP1(), msg.getP2());
-
         gamePanel.updateState(msg.getP1(), msg.getP2());
         updateCostCache(msg.getP1(), msg.getP2());
     }
@@ -515,15 +547,11 @@ public class ClientFrame extends JFrame {
         if (msg.getRoomName() != null && currentRoomName != null) {
             if (!currentRoomName.equals(msg.getRoomName())) return;
         }
+
         String loser = msg.getUserID();
-        if (uid != null && uid.equals(loser)) {
-            JOptionPane.showMessageDialog(this, "패배했습니다.");
-        } else {
-            JOptionPane.showMessageDialog(this, "승리했습니다.");
-        }
-        // 게임이 끝나면 방/게임 상태를 초기화하고 목록으로 복귀(일단은)
-        currentRoomName = null;
-        changeScreen("ROOM_LIST");
+        boolean iWin = (uid != null && !uid.equals(loser));
+
+        gamePanel.showGameResult(iWin);
     }
 
     // 카드풀 초기화 메서드
@@ -596,8 +624,8 @@ public class ClientFrame extends JFrame {
             return;
         }
 
-        // 서버 전송
         Message m = new Message(Message.MODE_USE_CARD, uid, card);
+        m.setRoomName(currentRoomName);
         sendMessage(m);
     }
 
@@ -631,7 +659,36 @@ public class ClientFrame extends JFrame {
         }
     }
 
+    public void requestSurrender() {
+        if (currentRoomName == null) return;
 
+        Message m = new Message(Message.MODE_GAME_END, uid); // 패배자 uid를 서버에 알림
+        m.setRoomName(currentRoomName);
+        sendMessage(m);
+
+        // 중복 클릭 방지용(서버 방송이 올 때까지)
+        gamePanel.lockForGameEnd();
+    }
+
+    public void requestLeaveRoomAfterGame() {
+        // 1) UDP 타이머 수신 중지
+        stopUdpTimerReceiver();
+
+        // 2) 클라 게임 상태 초기화
+        myHand.clear();
+        myCostCached = 0;
+        enemyCostCached = 0;
+
+        // 3) 게임 UI 초기화
+        gamePanel.resetGameUI();
+
+        // 4) 방 정보 정리 + 화면 이동
+        currentRoomName = null;
+        changeScreen("ROOM_LIST");
+
+        // 5) 방 목록 갱신 요청(기존 있던 방식 유지)
+        sendMessage(new Message(Message.MODE_ROOM_LIST));
+    }
 
 
     public static void main(String[] args) {
