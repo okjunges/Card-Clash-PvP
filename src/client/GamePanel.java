@@ -137,7 +137,7 @@ public class GamePanel extends JPanel {
         b_endTurn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appendChat("시스템: 턴 종료 버튼 클릭(아직 서버 전송 미구현)");
+                clientFrame.requestEndTurn();
             }
         });
     }
