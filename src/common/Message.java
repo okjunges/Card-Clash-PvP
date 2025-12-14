@@ -23,7 +23,6 @@ public class Message implements Serializable {
     private String roomName;
     private String userID;
     private int mode;
-    private int cardCode;
     private String message;
     private State p1;
     private State p2;
@@ -90,9 +89,11 @@ public class Message implements Serializable {
         this.cost = cost;
     }
     // 특별 라운드 결과 방송, 배팅 이긴 사람의 코스트만 배팅한 만큼 감소
-    public Message(int mode, State winner, String turnUid, int nextTurt) {
+    public Message(int mode, State winner, String turnUid, int nextTurn) {
         this.mode = mode;
         this.winner = winner;
+        this.userID = turnUid;
+        this.turn = nextTurn;
     }
     // 방 목록 반환
     public Message(int mode, Vector<String> rooms) {
@@ -124,17 +125,7 @@ public class Message implements Serializable {
         this.mode = mode;
     }
 
-    public int getCardCode() {
-        return cardCode;
-    }
-
-    public void setCardCode(int cardCode) {
-        this.cardCode = cardCode;
-    }
-
-    public String getMessage() {
-        return message;
-    }
+    public String getMessage() { return message; }
 
     public void setMessage(String message) {
         this.message = message;
@@ -171,6 +162,12 @@ public class Message implements Serializable {
     public void setCost(int cost) { this.cost = cost; }
 
     public int getCost() { return cost; }
+
+    public void setWinner(State winner) { this.winner = winner; }
+
+    public State getWinner() { return winner; }
+
+    public void setRooms(Vector<String> rooms) { this.rooms = rooms; }
 
     public Vector<String> getRoomNames() {
         return rooms;
