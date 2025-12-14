@@ -194,9 +194,10 @@ public class Room {
             winner = p2State;
             p2State.addCoat(p2bill * -1);
         }
-        Message msg = new Message(Message.MODE_SPECIAL_RESULT, winner);
-        broadcasting(msg);
         changeTurn(nowMs);
+
+        Message msg = new Message(Message.MODE_SPECIAL_RESULT, winner, currentTurnUid, turnNumber);
+        broadcasting(msg);
     }
 
     public void broadcasting(Message msg) {

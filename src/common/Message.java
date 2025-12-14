@@ -90,7 +90,7 @@ public class Message implements Serializable {
         this.cost = cost;
     }
     // 특별 라운드 결과 방송, 배팅 이긴 사람의 코스트만 배팅한 만큼 감소
-    public Message(int mode, State winner) {
+    public Message(int mode, State winner, String turnUid, int nextTurt) {
         this.mode = mode;
         this.winner = winner;
     }
