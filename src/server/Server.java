@@ -476,6 +476,11 @@ public class Server  extends JFrame {
 
                 Message endMsg = new Message(Message.MODE_TURN_END, room.getCurrentTurnUid(), room.getTurnNumber());
                 room.broadcasting(endMsg);
+
+                // 변경된 상태를 모든 플레이어에게 방송
+                Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
+                room.broadcasting(stateMsg);
+                printRoomPlayersState(room);
             }
         }
 
