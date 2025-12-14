@@ -502,8 +502,11 @@ public class ClientFrame extends JFrame {
         gamePanel.setTurnOwner(nextTurnUid);
 
         if (uid != null && uid.equals(nextTurnUid)) {
-            drawCards(1);
-            gamePanel.appendChat("시스템: 내 턴 시작 - 카드 1장 드로우");
+            // 3턴부터만 드로우 (1턴=p1, 2턴=p2는 초기세팅만)
+            if (nextTurn >= 3) {
+                drawCards(1);
+                gamePanel.appendChat("시스템: 내 턴 시작 - 카드 1장 드로우");
+            }
         }
     }
 
@@ -597,6 +600,22 @@ public class ClientFrame extends JFrame {
         Message m = new Message(Message.MODE_USE_CARD, uid, card);
         sendMessage(m);
     }
+
+    public void requestEndTurn() {
+        // 내 턴이 아닐 때는 막기
+        if (gamePanel != null && !gamePanel.isMyTurn()) {
+            gamePanel.appendBattleLog("시스템: 내 턴이 아닙니다.");
+            return;
+        }
+        if (currentRoomName == null) return;
+
+        Message m = new Message(Message.MODE_TURN_END, uid);
+        m.setRoomName(currentRoomName);  // Message에 setRoomName이 없다면 생성자/필드 방식에 맞춰서 수정 필요
+        sendMessage(m);
+
+        gamePanel.appendBattleLog("시스템: 턴 종료 요청 전송");
+    }
+
 
     // 코스트 캐시 갱신
     private void updateCostCache(common.State p1, common.State p2) {
