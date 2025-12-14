@@ -11,7 +11,7 @@ public class CardChargeUp extends Card {
 
     @Override
     public void changeState(State attacker, State target) {
-        attacker.setCost(attacker.getCost() + 1);
+        attacker.addCoat(1);
     }
 
     @Override

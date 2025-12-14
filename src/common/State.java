@@ -43,6 +43,8 @@ public class State implements Serializable {
         this.cost = cost;
     }
 
+    public void addCoat(int addCost) { this.cost += addCost; }
+
     public int getShield() {
         return shield;
     }
