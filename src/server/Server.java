@@ -202,7 +202,7 @@ public class Server  extends JFrame {
         return null;
     }
 
-    public class ClientHandler extends Thread {
+    public class ClientHandler extends Thread implements Session {
         private Socket clientSocket;
         private ObjectOutputStream out;
         private String uid;
@@ -272,6 +272,7 @@ public class Server  extends JFrame {
             }
         }
 
+        @Override
         public void send(Message msg) {
             try {
                 if (msg == null) {
@@ -505,12 +506,15 @@ public class Server  extends JFrame {
             send(returnMsg);
         }
 
-        public Socket getClientSocket() { return clientSocket; }
-        public int getUdpPort() { return udpPort; }
+        @Override
+        public InetSocketAddress getInetSocketAddress() {
+            return new InetSocketAddress(clientSocket.getInetAddress(), udpPort);
+        }
 
         @Override
         public void run() { receiveMessages(clientSocket); }
 
+        @Override
         public String getUid() { return uid; }
         public void finishGame(Room room) {
             printDisplay(room.getRoomName() + " 게임 종료");
