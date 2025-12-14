@@ -17,12 +17,17 @@ public class WaitingRoomPanel extends JPanel {
     private JLabel l_p2Name   = new JLabel("P2 : -");
     private JButton b_start   = new JButton("시작하기");
 
+    // 내 화면 기준 표시용
+    private String p1NameCached;
+    private String p2NameCached;
+
+
     // 캐릭터 이미지 라벨
     private JLabel l_p1Avatar = new JLabel("", SwingConstants.CENTER);
     private JLabel l_p2Avatar = new JLabel("", SwingConstants.CENTER);
 
-    private String p1AvatarPath = "/resources/img/blueknight.png";
-    private String p2AvatarPath = "/resources/img/redknight.png";
+    private String p1AvatarPath = "/resources/img/blueknight.png"; // 내 캐릭터(항상 BLUE)
+    private String p2AvatarPath = "/resources/img/redknight.png";  // 상대 캐릭터(항상 RED)
 
     // 상태
     private boolean isOwner = false;
@@ -91,6 +96,9 @@ public class WaitingRoomPanel extends JPanel {
         this.isOwner = true;
         this.roomName = roomName;
 
+        p1NameCached = ownerName;
+        p2NameCached = null;
+
         l_roomName.setText("방 이름: " + roomName);
         l_p1Name.setText("P1 : " + ownerName);
         l_p2Name.setText("P2 : 대기 중");
@@ -109,6 +117,8 @@ public class WaitingRoomPanel extends JPanel {
         this.isOwner = false;
         this.roomName = roomName;
 
+        p2NameCached = guestName; // 캐시만 채움
+
         l_roomName.setText("방 이름: " + roomName);
         l_p2Name.setText("P2 : " + guestName);
         b_start.setEnabled(false);
@@ -119,21 +129,21 @@ public class WaitingRoomPanel extends JPanel {
         l_p2Avatar.setVisible(true);
     }
 
-    // 상대 플레이어 닉네임 채우기 (P1·P2 공통)
+    // 상대 플레이어 닉네임과 아바타 채우기 (P1·P2 공통)
     public void setOpponentName(String opponentName) {
         if (isOwner) {
+            p2NameCached = opponentName;
             l_p2Name.setText("P2 : " + opponentName);
+            l_p2Avatar.setVisible(true);
         } else {
+            p1NameCached = opponentName;
             l_p1Name.setText("P1 : " + opponentName);
+            l_p1Avatar.setVisible(true);
         }
 
         applyWaitingRoomAvatars();
-        if (isOwner) {
-            l_p2Avatar.setVisible(true);
-        } else {
-            l_p1Avatar.setVisible(true);
-        }
     }
+
 
     public String getPlayer1Name(){
         String player1Name = l_p1Name.getText().trim().replace("P1 : ", "");
@@ -158,16 +168,36 @@ public class WaitingRoomPanel extends JPanel {
         int w = 220;
         int h = 280;
 
-        ImageIcon p1 = loadScaledIconFromResource(p1AvatarPath, w, h);
-        ImageIcon p2 = loadScaledIconFromResource(p2AvatarPath, w, h);
+        // 기본: P1=BLUE, P2=RED
+        String leftPath = "/resources/img/blueknight.png";
+        String rightPath = "/resources/img/redknight.png";
 
-        // P1 슬롯
-        if (p1 != null) l_p1Avatar.setIcon(p1);
-        else l_p1Avatar.setText("P1 IMG");
+        // 내가 P2면(손님이면) 내 슬롯이 오른쪽이니까,
+        // 오른쪽(P2)이 BLUE가 되도록 swap
+        if (!isOwner) {
+            leftPath = "/resources/img/redknight.png";
+            rightPath = "/resources/img/blueknight.png";
+        }
 
-        // P2 슬롯
-        if (p2 != null) l_p2Avatar.setIcon(p2);
-        else l_p2Avatar.setText("P2 IMG");
+        ImageIcon left = loadScaledIconFromResource(leftPath, w, h);
+        ImageIcon right = loadScaledIconFromResource(rightPath, w, h);
+
+        if (left != null) {
+            l_p1Avatar.setIcon(left);
+            l_p1Avatar.setText("");
+        } else {
+            l_p1Avatar.setIcon(null);
+            l_p1Avatar.setText("P1 IMG");
+        }
+
+        if (right != null) {
+            l_p2Avatar.setIcon(right);
+            l_p2Avatar.setText("");
+        } else {
+            l_p2Avatar.setIcon(null);
+            l_p2Avatar.setText("P2 IMG");
+        }
     }
+
 }
 

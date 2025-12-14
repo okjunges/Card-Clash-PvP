@@ -2,10 +2,13 @@ package client;
 
 import common.Message;
 import common.ServerInfo;
+import common.State;
 
 import javax.swing.*;
 import javax.swing.text.DefaultStyledDocument;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -52,6 +55,10 @@ public class ClientFrame extends JFrame {
     private int myCostCached = 0;
     private int enemyCostCached = 0;
 
+    private State lastMyState;   // 내가 마지막으로 받은 상태
+    private boolean specialRoundActive = false;
+
+
     private DefaultStyledDocument document = new DefaultStyledDocument(); // 게임화면 채팅에 쓸 Document
 
     public ClientFrame() {
@@ -62,7 +69,8 @@ public class ClientFrame extends JFrame {
         serverPort = ServerInfo.getInstance().getPORT();
 
         setLayout(new BorderLayout());
-        setSize(1000, 800); //일단 임시로 2배로 키움. 적절한 크기 찾은 후 고정예정
+        setSize(1000, 800);
+        setResizable(false); // 창 크기 조절 막기
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // 패널 생성 & 등록
@@ -187,6 +195,14 @@ public class ClientFrame extends JFrame {
 
                             case Message.MODE_ROOM_LIST:
                                 handleRoomList(msg);
+                                break;
+
+                            case Message.MODE_SPECIAL_START:
+                                handleSpecialStart(msg);
+                                break;
+
+                            case Message.MODE_SPECIAL_RESULT:
+                                handleSpecialResult(msg);
                                 break;
 
                             default:
@@ -375,6 +391,15 @@ public class ClientFrame extends JFrame {
         String roomName = msg.getRoomName();
         String userId = msg.getUserID();
 
+        // 입장 실패 처리(서버가 "fail"을 message로 준다면)
+        if ("fail".equals(msg.getMessage())) {
+            if (uid != null && uid.equals(userId)) {
+                currentRoomName = null; // 롤백
+                JOptionPane.showMessageDialog(this, "방 입장 실패");
+            }
+            return;
+        }
+
         if (currentRoomName == null || !currentRoomName.equals(roomName)) return;
 
         if (uid.equals(userId)) {
@@ -418,6 +443,11 @@ public class ClientFrame extends JFrame {
         // 3) 초기 상태 표시
         gamePanel.updateState(msg.getP1(), msg.getP2());
         updateCostCache(msg.getP1(), msg.getP2());
+
+        // 캐릭터 머리위 닉네임용: 내/상대 UID 세팅
+        String enemyUid = getEnemyUid(msg.getP1(), msg.getP2());
+        gamePanel.setPlayerNames(uid, enemyUid);
+
 
         // 4) 현재 턴 반영
         gamePanel.setTurnOwner(msg.getUserID());
@@ -483,6 +513,32 @@ public class ClientFrame extends JFrame {
         String cardName = (used == null) ? "알수없는카드" : used.getCardName();
         gamePanel.appendBattleLog(msg.getUserID() + " 가 [" + cardName + "] 사용");
 
+        String actorUid = msg.getUserID();
+
+        // blue = 나(uid), red = 상대 (좌우 고정)
+        boolean actorIsBlue = (uid != null && uid.equals(actorUid));
+
+        // 공격 카드
+        if (used instanceof common.CardStrike
+                || used instanceof common.CardHeavyBlow
+                || used instanceof common.CardPierce
+                || used instanceof common.CardWeaknessStrike
+                || used instanceof common.CardBonus) {
+
+            gamePanel.playAttackEffect(actorIsBlue);
+        }
+        // 버프 카드
+        else if (used instanceof common.CardSharpEdge) {
+            gamePanel.playBuffEffect(actorIsBlue);
+        }
+        // 방어 카드
+        else if (used instanceof common.CardDefend
+                || used instanceof common.CardIronWall
+                || used instanceof common.CardCounterGuard) {
+
+            gamePanel.playShieldEffect(actorIsBlue);
+        }
+
         // 내 카드면 손패에서 1장 제거(서버가 성공 방송을 보냈을 때만 제거)
         if (uid != null && uid.equals(msg.getUserID()) && used != null) {
             removeOneCardFromMyHand(used);
@@ -495,6 +551,10 @@ public class ClientFrame extends JFrame {
             else if (used instanceof common.CardAdrenalineRush) {
                 drawCards(2);
                 gamePanel.appendBattleLog("시스템: Adrenaline Rush 효과 - 카드 2장 드로우");
+            }
+            else if (used instanceof common.CardBonus) {
+                drawCards(1); // 기존 드로우 함수 재사용
+                gamePanel.appendBattleLog("시스템: Bonus 효과 - 카드 1장 드로우");
             }
 
             gamePanel.setMyHand(myHand);
@@ -516,13 +576,28 @@ public class ClientFrame extends JFrame {
         if (msg.getRoomName() != null && currentRoomName != null) {
             if (!currentRoomName.equals(msg.getRoomName())) return;
         }
+        // 내 상태 캐싱
+        if (uid != null) {
+            if (uid.equals(msg.getP1().getName())) {
+                lastMyState = msg.getP1();
+            } else if (uid.equals(msg.getP2().getName())) {
+                lastMyState = msg.getP2();
+            }
+        }
         System.out.println("SYNC_STATE 수신: p1Cost=" + msg.getP1().getCost() + ", p2Cost=" + msg.getP2().getCost());
+
+        // 상태가 올 때마다 닉네임도 유지/갱신
+        String enemyUid = getEnemyUid(msg.getP1(), msg.getP2());
+        gamePanel.setPlayerNames(uid, enemyUid);
+
         gamePanel.updateState(msg.getP1(), msg.getP2());
         updateCostCache(msg.getP1(), msg.getP2());
     }
 
     // 턴 종료 방송 - 상세 로직은 7단계에서 구현
     private void handleTurnEnd(Message msg) {
+        System.out.println("TURN_END rcv: nextTurnUid=" + msg.getUserID() + ", nextTurn=" + msg.getTurn() + ", myUid=" + uid);
+
         if (msg.getRoomName() != null && currentRoomName != null) {
             if (!currentRoomName.equals(msg.getRoomName())) return;
         }
@@ -554,9 +629,10 @@ public class ClientFrame extends JFrame {
         gamePanel.showGameResult(iWin);
     }
 
-    // 카드풀 초기화 메서드
+    // 카드풀 초기화 메서드 (샘플용 카드 타입 목록)
     private void initCardPool() {
         cardPool.clear();
+
         cardPool.add(new common.CardStrike());
         cardPool.add(new common.CardHeavyBlow());
         cardPool.add(new common.CardPierce());
@@ -586,6 +662,8 @@ public class ClientFrame extends JFrame {
         if (c instanceof common.CardChargeUp) return 0;
         if (c instanceof common.CardAdrenalineRush) return 1;
 
+        if (c instanceof common.CardBonus) return 0;
+
         return 999; // 알 수 없는 카드면 막기
     }
 
@@ -595,15 +673,27 @@ public class ClientFrame extends JFrame {
 
         for (int i = 0; i < n; i++) {
             int idx = (int) (Math.random() * cardPool.size());
-            // 카드 객체를 그대로 공유하면 안 될 수도 있으니 새 객체로 넣는 게 안전
-            // (각 카드가 상태를 가진다면 특히)
-            common.Card c = cardPool.get(idx);
+            common.Card src = cardPool.get(idx);
+            common.Card c;
+
+            if (src instanceof common.CardStrike) c = new common.CardStrike();
+            else if (src instanceof common.CardHeavyBlow) c = new common.CardHeavyBlow();
+            else if (src instanceof common.CardPierce) c = new common.CardPierce();
+            else if (src instanceof common.CardSharpEdge) c = new common.CardSharpEdge();
+            else if (src instanceof common.CardWeaknessStrike) c = new common.CardWeaknessStrike();
+
+            else if (src instanceof common.CardDefend) c = new common.CardDefend();
+            else if (src instanceof common.CardIronWall) c = new common.CardIronWall();
+            else if (src instanceof common.CardCounterGuard) c = new common.CardCounterGuard();
+
+            else if (src instanceof common.CardChargeUp) c = new common.CardChargeUp();
+            else if (src instanceof common.CardAdrenalineRush) c = new common.CardAdrenalineRush();
+
+            else if (src instanceof common.CardBonus) c = new common.CardBonus();
+            else c = src;
+
             myHand.add(c);
         }
-        //카드가 내부 상태를 갖는 구조면 “복제 생성”이 필요할 수 있는데,
-        // 지금 카드 클래스들 보통은 상수값만 들고 있어서 일단 이 수준으로 가고,
-        // 문제 생기면 그때 카드 생성 방식을 조정.
-
         gamePanel.setMyHand(myHand);
     }
 
@@ -659,6 +749,16 @@ public class ClientFrame extends JFrame {
         }
     }
 
+    // 내/상대 UID 세팅
+    private String getEnemyUid(common.State p1, common.State p2) {
+        if (uid == null || p1 == null || p2 == null) return null;
+        String p1n = p1.getName();
+        String p2n = p2.getName();
+        if (uid.equals(p1n)) return p2n;
+        if (uid.equals(p2n)) return p1n;
+        return null;
+    }
+
     public void requestSurrender() {
         if (currentRoomName == null) return;
 
@@ -688,6 +788,80 @@ public class ClientFrame extends JFrame {
 
         // 5) 방 목록 갱신 요청(기존 있던 방식 유지)
         sendMessage(new Message(Message.MODE_ROOM_LIST));
+    }
+
+    private void handleSpecialStart(Message msg) {
+        if (msg.getRoomName() != null && currentRoomName != null) {
+            if (!currentRoomName.equals(msg.getRoomName())) return;
+        }
+
+        specialRoundActive = true;
+        int maxCost = myCostCached;
+
+        gamePanel.appendChat("시스템: 보너스 라운드 시작! (60초 내 배팅)");
+        gamePanel.enterSpecialRound(maxCost);
+    }
+
+    private void handleSpecialResult(Message msg) {
+        // 방 필터
+        if (msg.getRoomName() != null && currentRoomName != null) {
+            if (!currentRoomName.equals(msg.getRoomName())) return;
+        }
+
+        specialRoundActive = false;
+        gamePanel.exitSpecialRound();
+
+        State winner = msg.getWinner(); // null이면 무승부
+        if (winner == null) {
+            gamePanel.appendChat("시스템: 보너스 라운드 무승부 - 보너스 카드 없음");
+        } else {
+            String winName = winner.getName();
+            if (uid != null && uid.equals(winName)) {
+                // 승자면 보너스 카드 획득(클라 손패에 추가)
+                myHand.add(new common.CardBonus());
+                gamePanel.setMyHand(myHand);
+                gamePanel.appendChat("시스템: 보너스 라운드 승리! 보너스 카드 획득");
+            } else {
+                gamePanel.appendChat("시스템: 보너스 라운드 패배 - 상대가 보너스 카드 획득");
+            }
+        }
+
+        String nextTurnUid = msg.getUserID();
+        int nextTurn = msg.getTurn();
+
+        // 턴 owner 반영(버튼/손패 enable 갱신)
+        gamePanel.setTurnOwner(nextTurnUid);
+
+        if (uid != null && uid.equals(nextTurnUid)) {
+            if (nextTurn >= 3) {
+                // ★ 보너스가 바로 이어지는 경우가 있어서 약간 지연 후 실행
+                new javax.swing.Timer(150, new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        ((javax.swing.Timer) e.getSource()).stop();
+
+                        // 이 시점에 SPECIAL_START가 왔다면 드로우 금지
+                        if (specialRoundActive) return;
+
+                        drawCards(1);
+                        gamePanel.appendChat("시스템: 내 턴 시작 - 카드 1장 드로우");
+                    }
+                }).start();
+            }
+        }
+
+        // udp 타이머 로그로 확인(임시)
+        gamePanel.appendChat("시스템: 다음 턴 = " + nextTurnUid + " (턴 " + nextTurn + ")");
+    }
+
+    public void requestSpecialSubmit(int cost) {
+        if (currentRoomName == null) return;
+
+        Message m = new Message(Message.MODE_SPECIAL_SUBMIT, cost);
+        m.setRoomName(currentRoomName);
+        sendMessage(m);
+
+        gamePanel.appendChat("시스템: 보너스 배팅 제출 (" + cost + ")");
     }
 
 

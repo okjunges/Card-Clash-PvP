@@ -29,9 +29,12 @@ public class GamePanel extends JPanel {
     // 게임 영역
     private JPanel gameArea = new JPanel();
 
-    // 전투 보드(양쪽 캐릭터)
+    // 전투 보드(양쪽 캐릭터, 닉네임)
     private JLabel l_leftChar = new JLabel("", SwingConstants.CENTER);
     private JLabel l_rightChar = new JLabel("", SwingConstants.CENTER);
+    private JLabel l_leftName = new JLabel("", SwingConstants.CENTER);
+    private JLabel l_rightName = new JLabel("", SwingConstants.CENTER);
+
 
     // 리소스 경로
     private String rightCharPath = "/resources/img/red_idle.png";
@@ -71,6 +74,13 @@ public class GamePanel extends JPanel {
 
     private boolean isMyTurn = false;
 
+    // 보너스 배팅 UI 및 스페셜 라운드 잠금
+    private JDialog specialDialog;
+    private javax.swing.Timer specialTimer;
+    private boolean specialSubmitted = false;
+    private boolean specialRoundActive = false;
+
+
     // 게임 종료 오버레이
     private JLayeredPane centerLayer = new JLayeredPane();
     private JPanel baseGamePanel = new JPanel(new BorderLayout());
@@ -85,6 +95,22 @@ public class GamePanel extends JPanel {
 
     // ClientFrame에서 넘겨준 Document 재사용
     private DefaultStyledDocument document;
+
+    // ===== 캐릭터 상태 이미지 경로 =====
+    private final String BLUE_IDLE = "/resources/img/blue_idle.png";
+    private final String BLUE_ATTACK = "/resources/img/blue_attack.png";
+    private final String BLUE_ATTACKED = "/resources/img/blue_attacked.png";
+    private final String BLUE_BUFF = "/resources/img/blue_buff.png";
+    private final String BLUE_SHIELD = "/resources/img/blue_shildSpell.png";
+
+    private final String RED_IDLE = "/resources/img/red_idle.png";
+    private final String RED_ATTACK = "/resources/img/red_attack.png";
+    private final String RED_ATTACKED = "/resources/img/red_attacked.png";
+    private final String RED_BUFF = "/resources/img/red_buff.png";
+    private final String RED_SHIELD = "/resources/img/red_shildSpell.png";
+
+    // 1초 후 idle 복귀용 타이머
+    private javax.swing.Timer effectTimer;
 
     public GamePanel(ClientFrame clientFrame, DefaultStyledDocument document) {
         this.clientFrame = clientFrame;
@@ -104,10 +130,17 @@ public class GamePanel extends JPanel {
         JPanel topPanel = new JPanel(new BorderLayout());
 
         // 1줄: GG 버튼 (왼쪽) + 상대 상태 (오른쪽)
+        JLabel l_enemyTag = new JLabel("상대");
+        l_enemyTag.setOpaque(true);
+        l_enemyTag.setBackground(new Color(235, 235, 235));
+        l_enemyTag.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
         JPanel line1 = new JPanel(new BorderLayout());
         line1.add(b_gg, BorderLayout.WEST);
         JPanel enemyStatPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         enemyStatPanel.setOpaque(false);
+
+        enemyStatPanel.add(l_enemyTag);
         enemyStatPanel.add(c_enemyCost);
         enemyStatPanel.add(c_enemyHp);
         enemyStatPanel.add(c_enemySh);
@@ -128,13 +161,27 @@ public class GamePanel extends JPanel {
         JPanel arena = new JPanel(new BorderLayout());
         arena.setOpaque(false);
 
+        // 좌 캐릭터(닉+이미지)
+        JPanel leftWrap = new JPanel(new BorderLayout());
+        leftWrap.setOpaque(false);
+        l_leftName.setFont(new Font("Dialog", Font.BOLD, 16));
+        l_leftName.setForeground(Color.WHITE);
+        leftWrap.add(l_leftName, BorderLayout.NORTH);
+        leftWrap.add(l_leftChar, BorderLayout.CENTER);
+        leftWrap.setPreferredSize(new Dimension(260, 0));
 
-        // 좌/우 캐릭터 영역 폭 고정(원하면 조절)
-        l_leftChar.setPreferredSize(new Dimension(260, 0));
-        l_rightChar.setPreferredSize(new Dimension(260, 0));
+        // 우 캐릭터(닉+이미지)
+        JPanel rightWrap = new JPanel(new BorderLayout());
+        rightWrap.setOpaque(false);
+        l_rightName.setFont(new Font("Dialog", Font.BOLD, 16));
+        l_rightName.setForeground(Color.WHITE);
+        rightWrap.add(l_rightName, BorderLayout.NORTH);
+        rightWrap.add(l_rightChar, BorderLayout.CENTER);
+        rightWrap.setPreferredSize(new Dimension(260, 0));
 
-        arena.add(l_leftChar, BorderLayout.WEST);
-        arena.add(l_rightChar, BorderLayout.EAST);
+        arena.add(leftWrap, BorderLayout.WEST);
+        arena.add(rightWrap, BorderLayout.EAST);
+
 
         // 중앙은 이펙트 자리로 비워둠
         JPanel centerStage = new JPanel();
@@ -210,11 +257,18 @@ public class GamePanel extends JPanel {
         leftPanel.add(centerLayer, BorderLayout.CENTER);
 
         // 하단: 내 상태 + 턴 종료 + 손패
+        JLabel l_meTag = new JLabel("나");
+        l_meTag.setOpaque(true);
+        l_meTag.setBackground(new Color(235, 235, 235));
+        l_meTag.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
         JPanel bottomPanel = new JPanel(new BorderLayout());
 
         JPanel myStatePanel = new JPanel(new BorderLayout());
         JPanel myStatPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         myStatPanel.setOpaque(false);
+
+        myStatPanel.add(l_meTag);
         myStatPanel.add(c_meSh);
         myStatPanel.add(c_meHp);
         myStatPanel.add(c_meCost);
@@ -243,10 +297,12 @@ public class GamePanel extends JPanel {
 
         handScroll = new JScrollPane(handLayer,
                 JScrollPane.VERTICAL_SCROLLBAR_NEVER,
-                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         handScroll.setPreferredSize(new Dimension(10, CARD_H + CARD_RAISE_Y + 10));
 
         bottomPanel.add(handScroll, BorderLayout.CENTER);
+       // handScroll.setBorder(null);
+        //handScroll.setViewportBorder(null);
 
         leftPanel.add(bottomPanel, BorderLayout.SOUTH);
 
@@ -313,6 +369,14 @@ public class GamePanel extends JPanel {
         t_battleLog.setCaretPosition(t_battleLog.getDocument().getLength());
     }
 
+    // 캐릭터와 화면 동기화
+    public void setPlayerNames(String myUid, String enemyUid) {
+        // 내 화면 기준: 왼쪽=나(블루), 오른쪽=상대(레드)
+        l_leftName.setText(myUid == null ? "" : myUid);
+        l_rightName.setText(enemyUid == null ? "" : enemyUid);
+    }
+
+
     // === 채팅 관련 메서드들 ===
     private void sendChat() {
         String text = t_input.getText().trim();
@@ -353,14 +417,25 @@ public class GamePanel extends JPanel {
     public void setTurnOwner(String turnUid) {
         String me = clientFrame.getUid();
         isMyTurn = (me != null && me.equals(turnUid));
-        b_endTurn.setEnabled(isMyTurn);
 
+        // 보너스 라운드면 턴 종료/손패는 잠금
+        if (specialRoundActive) {
+            b_endTurn.setEnabled(false);
+            for (Component c : handLayer.getComponents()) {
+                if (c instanceof JButton) c.setEnabled(false);
+            }
+            return; // 여기서 끝 (슬라이더/제출은 enterSpecialRound에서 따로 enable)
+        }
+
+        //평소 턴 로직
+        b_endTurn.setEnabled(isMyTurn);
         // 손패 카드 버튼들도 한꺼번에 on/off
         for (Component c : handLayer.getComponents()) {
             if (c instanceof JButton) {
                 c.setEnabled(isMyTurn);
             }
         }
+
     }
 
     // 손패 갱신 메서드 추가(누적 대응, 겹침+오버 돌출)
@@ -396,6 +471,7 @@ public class GamePanel extends JPanel {
         }
 
         int x = 0;
+        final int HOVER_LAYER = 9999; // 항상 최상단
         for (int i = 0; i < handCards.size(); i++) {
             common.Card card = handCards.get(i);
             CardButton b = new CardButton(card, cardBgImage);
@@ -405,22 +481,29 @@ public class GamePanel extends JPanel {
             int baseY = CARD_RAISE_Y;
             b.setBounds(baseX, baseY, CARD_W, CARD_H);
 
+            final int originalLayer = i;  // 오른쪽 카드가 더 위에 보이도록: i가 클수록 layer가 크다
+
             // 마우스 오버 시 돌출
             b.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseEntered(java.awt.event.MouseEvent e) {
                     b.setLocation(baseX, baseY - CARD_RAISE_Y);
+
+                    handLayer.setLayer(b, HOVER_LAYER);
+                    handLayer.moveToFront(b);
+
                     handLayer.repaint();
                 }
 
                 @Override
                 public void mouseExited(java.awt.event.MouseEvent e) {
                     b.setLocation(baseX, baseY);
+                    handLayer.setLayer(b, originalLayer);
+                    handLayer.moveToFront(b);
                     handLayer.repaint();
                 }
             });
 
-            // 클릭 동작은 6단계에서 서버 전송으로 연결
             b.addActionListener(new java.awt.event.ActionListener() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
@@ -428,8 +511,7 @@ public class GamePanel extends JPanel {
                 }
             });
 
-            int layer = handCards.size() - 1 - i;     // 왼쪽 카드가 더 큰 layer로 더 위에 부착
-            handLayer.add(b, Integer.valueOf(layer));
+            handLayer.add(b, Integer.valueOf(originalLayer));
             x += step;
         }
 
@@ -559,5 +641,163 @@ public class GamePanel extends JPanel {
         l_leftChar.setText(left == null ? "RED" : "");
         l_rightChar.setText(right == null ? "BLUE" : "");
     }
+
+
+    public void enterSpecialRound(int maxCost) {
+        // 이미 떠있으면 재호출 방지
+        if (specialDialog != null && specialDialog.isShowing()) return;
+
+        // 네트워크 수신 스레드에서 UI 띄우면 안됨 → EDT로 넘김
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                showSpecialDialog(maxCost);
+            }
+        });
+    }
+
+    // 구글링을 통해 공부하며 코드 작성
+    private void showSpecialDialog(int maxCost) {
+        specialRoundActive = true;
+
+        // 행동 잠금(턴 종료/손패)
+        b_endTurn.setEnabled(false);
+        for (Component c : handLayer.getComponents()) {
+            if (c instanceof JButton) c.setEnabled(false);
+        }
+
+        specialSubmitted = false;
+
+        specialDialog = new JDialog(SwingUtilities.getWindowAncestor(this), "보너스 라운드 배팅",
+                Dialog.ModalityType.MODELESS);   // 모달 금지
+        specialDialog.setLayout(new BorderLayout());
+        specialDialog.setSize(360, 180);
+        specialDialog.setLocationRelativeTo(this);
+
+        JLabel l_info = new JLabel("코스트를 얼마나 낼지 선택", SwingConstants.CENTER);
+        specialDialog.add(l_info, BorderLayout.NORTH);
+
+        JSlider slider = new JSlider(0, Math.max(0, maxCost), 0);
+        slider.setMajorTickSpacing(Math.max(1, Math.max(0, maxCost) / 5));
+        slider.setPaintTicks(true);
+        slider.setPaintLabels(true);
+        specialDialog.add(slider, BorderLayout.CENTER);
+
+        JPanel bottom = new JPanel(new BorderLayout());
+        JLabel l_time = new JLabel("남은시간: 60초", SwingConstants.CENTER);
+        JButton b_submit = new JButton("제출");
+        bottom.add(l_time, BorderLayout.CENTER);
+        bottom.add(b_submit, BorderLayout.EAST);
+        specialDialog.add(bottom, BorderLayout.SOUTH);
+
+        b_submit.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (specialSubmitted) return;
+                specialSubmitted = true;
+
+                int cost = slider.getValue();
+                clientFrame.requestSpecialSubmit(cost);
+
+                if (specialTimer != null) specialTimer.stop();
+                specialDialog.dispose();
+            }
+        });
+
+        specialDialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                if (!specialSubmitted) {
+                    specialSubmitted = true;
+                    clientFrame.requestSpecialSubmit(0);
+                }
+                if (specialTimer != null) specialTimer.stop();
+            }
+        });
+
+        final int[] remain = {60};
+        specialTimer = new javax.swing.Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                remain[0]--;
+                l_time.setText("남은시간: " + remain[0] + "초");
+                if (remain[0] <= 0) {
+                    specialTimer.stop();
+                    if (!specialSubmitted) {
+                        specialSubmitted = true;
+                        clientFrame.requestSpecialSubmit(0);
+                    }
+                    specialDialog.dispose();
+                }
+            }
+        });
+        specialTimer.start();
+
+        specialDialog.setVisible(true);
+    }
+
+    public void exitSpecialRound() {
+        specialRoundActive = false;
+        try {
+            if (specialTimer != null) specialTimer.stop();
+            if (specialDialog != null && specialDialog.isShowing()) specialDialog.dispose();
+        } catch (Exception ignored) {}
+    }
+
+    private void setLeftChar(String path) {
+        leftCharPath = path;
+        applyGameCharacters();
+    }
+
+    private void setRightChar(String path) {
+        rightCharPath = path;
+        applyGameCharacters();
+    }
+
+    private void resetBothToIdle() {
+        setLeftChar(BLUE_IDLE);
+        setRightChar(RED_IDLE);
+    }
+
+
+    public void playAttackEffect(boolean attackerIsBlue) {
+        // 기존 타이머 있으면 끊고 새로 시작
+        if (effectTimer != null) effectTimer.stop();
+
+        if (attackerIsBlue) {
+            setLeftChar(BLUE_ATTACK);
+            setRightChar(RED_ATTACKED);
+        } else {
+            setRightChar(RED_ATTACK);
+            setLeftChar(BLUE_ATTACKED);
+        }
+
+        effectTimer = new javax.swing.Timer(1000, e -> resetBothToIdle());
+        effectTimer.setRepeats(false);
+        effectTimer.start();
+    }
+
+    public void playBuffEffect(boolean blueSide) {
+        if (effectTimer != null) effectTimer.stop();
+
+        if (blueSide) setLeftChar(BLUE_BUFF);
+        else setRightChar(RED_BUFF);
+
+        effectTimer = new javax.swing.Timer(1000, e -> resetBothToIdle());
+        effectTimer.setRepeats(false);
+        effectTimer.start();
+    }
+
+    public void playShieldEffect(boolean blueSide) {
+        if (effectTimer != null) effectTimer.stop();
+
+        if (blueSide) setLeftChar(BLUE_SHIELD);
+        else setRightChar(RED_SHIELD);
+
+        effectTimer = new javax.swing.Timer(1000, e -> resetBothToIdle());
+        effectTimer.setRepeats(false);
+        effectTimer.start();
+    }
+
 
 }
