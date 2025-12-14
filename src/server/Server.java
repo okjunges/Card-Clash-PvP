@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class Server  extends JFrame {
+public class Server extends JFrame {
     private JTextArea t_display = new JTextArea("");
     private JButton b_exit = new JButton("종료");
     private int port;
@@ -27,6 +27,7 @@ public class Server  extends JFrame {
     private Thread clientThread;
     private Vector<ClientHandler> users = new Vector<ClientHandler>();
     private Vector<Room> rooms = new Vector<Room>();
+    private ServerLog log = new ServerLog();
 
     // UDP 통신
     private DatagramSocket udpSendSocket;
@@ -171,6 +172,10 @@ public class Server  extends JFrame {
             t_display.append(msg + "\n");
             t_display.setCaretPosition(t_display.getDocument().getLength());
         });
+    }
+    private class ServerLog implements Logger {
+        @Override
+        public void display(String text) { printDisplay(text); }
     }
     public void printRoomPlayersState(Room room) {
         printDisplay(room.getRoomName() + "방에서 " + room.getP1State().getName() + "의 (hp, cost, shield) : (" + room.getP1State().getHp() + ", " + room.getP1State().getCost() + ", " + room.getP1State().getShield() + ")");
@@ -346,7 +351,7 @@ public class Server  extends JFrame {
                     }
                 }
                 if (!duplicate) {
-                    Room room = new Room(name, this);
+                    Room room = new Room(name, this, log);
                     rooms.add(room);
                     success = true;
                 }
@@ -474,7 +479,7 @@ public class Server  extends JFrame {
                 long nowMs = System.currentTimeMillis();
                 Round nowRound = room.changeTurn(nowMs);
                 if (nowRound == Round.NORMAL) {
-                    printDisplay(room.getRoomName() + "에서 " + room.getTurnNumber() + "턴의 " + room.getCurrentTurnUid() + " 시작");
+                    printDisplay(room.getRoomName() + "방에서 " + room.getTurnNumber() + "턴의 " + room.getCurrentTurnUid() + " 시작");
 
                     Message endMsg = new Message(Message.MODE_TURN_END, room.getCurrentTurnUid(), room.getTurnNumber());
                     room.broadcasting(endMsg);
@@ -485,7 +490,7 @@ public class Server  extends JFrame {
                     printRoomPlayersState(room);
                 }
                 else if (nowRound == Round.SPECIAL) {
-                    printDisplay(room.getRoomName() + "에서 보너스 라운드 경매 시작!");
+                    printDisplay(room.getRoomName() + "방에서 보너스 라운드 경매 시작!");
                     Message m = new Message(Message.MODE_SPECIAL_START);
                     room.broadcasting(m);
                 }

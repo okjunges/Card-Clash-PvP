@@ -19,6 +19,7 @@ public class Room {
     private boolean p1Submit;
     private int p2bill;
     private boolean p2Submit;
+    private Logger display;
     private Round round;
     private Random random = new Random();
 
@@ -31,10 +32,11 @@ public class Room {
     private InetSocketAddress p1UdpAddr;
     private InetSocketAddress p2UdpAddr;
 
-    Room(String roomName, Session player1) {
+    Room(String roomName, Session player1, Logger logger) {
         this.roomName = roomName;
         this.player1 = player1;
         this.p1State = new State(player1.getUid(), 30, 3, 0);
+        display = logger;
         p1bill = -1;
         p1Submit = false;
         p1UdpAddr = player1.getInetSocketAddress();
@@ -195,6 +197,9 @@ public class Room {
             p2State.addCoat(p2bill * -1);
         }
         changeTurn(nowMs);
+        if (winner == null) { displayLog(roomName + "방에서 " + "보너스 라운드 무승부"); }
+        else { displayLog(roomName + "방에서 " + "보너스 라운드 승자 : " + winner.getName()); }
+        displayLog(roomName + "방에서 " + turnNumber + "턴의 " + currentTurnUid + " 시작");
 
         Message msg = new Message(Message.MODE_SPECIAL_RESULT, winner, currentTurnUid, turnNumber);
         broadcasting(msg);
@@ -211,4 +216,6 @@ public class Room {
 
     public synchronized boolean isGameRunning() { return gameRunning; }
     public synchronized int getRemainingSec(long nowMs) { return turnTimer.remainingSec(nowMs); }
+
+    private void displayLog(String msg) { if (display != null) display.display(msg);}
 }
