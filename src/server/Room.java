@@ -80,6 +80,7 @@ public class Room {
         currentTurnUid = player1.getUid();
         turnNumber = 1;
         lastLoggedRemain = -1;
+        p1State.setCost(p1State.getCost() + 1);
         turnTimer.startTurnTimer(nowMs);
     }
 
@@ -97,9 +98,11 @@ public class Room {
         }
         s.resetBonusDamage();
         if (currentTurnUid.equals(player1.getUid())) {
+            p2State.setCost(p2State.getCost() + 1);
             currentTurnUid = player2.getUid();
         }
         else if (currentTurnUid.equals(player2.getUid())) {
+            p1State.setCost(p1State.getCost() + 1);
             currentTurnUid = player1.getUid();
         }
         turnNumber++;

@@ -274,8 +274,13 @@ public class Server  extends JFrame {
 
         public void send(Message msg) {
             try {
-                out.writeObject(msg);
-                out.flush();
+                synchronized (out) {
+                    // Java 직렬화에서 같은 State 객체를 반복 전송했을 때
+                    // ObjectOutputStream 캐시 때문에 클라이언트가 업데이트를 못 받는 경우를 방지하기 위해서 캐시 삭제
+                    out.reset();    // 캐시 삭제
+                    out.writeObject(msg);
+                    out.flush();
+                }
             } catch (IOException e) {
                 System.err.println("클라이언트 일반 전송 오류> " + e.getMessage());
             }
