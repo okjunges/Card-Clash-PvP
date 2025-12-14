@@ -244,6 +244,9 @@ public class Server  extends JFrame {
                     else if (msg.getMode() == Message.MODE_ROOM_LIST) {
                         sendRoomList();
                     }
+                    else if (msg.getMode() == Message.MODE_SPECIAL_SUBMIT) {
+                        submit(msg);
+                    }
                 }
             } catch (ClassNotFoundException e) {
                 printDisplay("잘못된 객체가 전달되었습니다");
@@ -351,12 +354,12 @@ public class Server  extends JFrame {
 
             if (success) {
                 printDisplay(uid + " 가 방 생성 : " + name);
+                broadcasting(msg);
             } else {
                 msg.setMessage("fail");
                 printDisplay("(방 생성 실패) 이미 존재하는 방 : " + name);
+                send(msg);
             }
-
-            broadcasting(msg);
         }
 
         private void enterRoom(Message msg) {
@@ -468,20 +471,24 @@ public class Server  extends JFrame {
                     return;
                 }
 
-                printDisplay(room.getRoomName() + "에서 " + room.getCurrentTurnUid() + "의 턴 종료");
-
                 long nowMs = System.currentTimeMillis();
-                room.changeTurn(nowMs);
+                Round nowRound = room.changeTurn(nowMs);
+                if (nowRound == Round.NORMAL) {
+                    printDisplay(room.getRoomName() + "에서 " + room.getTurnNumber() + "턴의 " + room.getCurrentTurnUid() + " 시작");
 
-                printDisplay(room.getRoomName() + "에서 " + room.getTurnNumber() + "턴의 " + room.getCurrentTurnUid() + " 시작");
+                    Message endMsg = new Message(Message.MODE_TURN_END, room.getCurrentTurnUid(), room.getTurnNumber());
+                    room.broadcasting(endMsg);
 
-                Message endMsg = new Message(Message.MODE_TURN_END, room.getCurrentTurnUid(), room.getTurnNumber());
-                room.broadcasting(endMsg);
-
-                // 변경된 상태를 모든 플레이어에게 방송
-                Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
-                room.broadcasting(stateMsg);
-                printRoomPlayersState(room);
+                    // 변경된 상태를 모든 플레이어에게 방송
+                    Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
+                    room.broadcasting(stateMsg);
+                    printRoomPlayersState(room);
+                }
+                else if (nowRound == Round.SPECIAL) {
+                    printDisplay(room.getRoomName() + "에서 보너스 라운드 경매 시작!");
+                    Message m = new Message(Message.MODE_SPECIAL_START);
+                    room.broadcasting(m);
+                }
             }
         }
 
@@ -504,6 +511,20 @@ public class Server  extends JFrame {
             }
             Message returnMsg = new Message(Message.MODE_ROOM_LIST, list);
             send(returnMsg);
+        }
+
+        private void submit(Message msg) {
+            Room room = findRoomByUser(uid);
+            if (room == null) {
+                printDisplay("배팅 실패 : 방을 찾을 수 없음 - " + uid);
+                return;
+            }
+
+            synchronized (room) {
+                int bill = msg.getCost();
+                printDisplay(uid + "가 보너스 라운드에서 " + bill + " 배팅 완료");
+                room.submit(this, bill, System.currentTimeMillis());
+            }
         }
 
         @Override

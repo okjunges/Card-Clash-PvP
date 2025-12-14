@@ -5,6 +5,7 @@ import common.Message;
 import common.State;
 
 import java.net.InetSocketAddress;
+import java.util.Random;
 
 public class Room {
     private String roomName;
@@ -14,6 +15,13 @@ public class Room {
     private State p2State;
     private String currentTurnUid; // 지금 턴인 플레이어 uid
     private int turnNumber;
+    private int p1bill;
+    private boolean p1Submit;
+    private int p2bill;
+    private boolean p2Submit;
+    private Round round;
+    private Random random = new Random();
+
     // 로그용 플래그 변수
     private int lastLoggedRemain = -1;
 
@@ -27,11 +35,15 @@ public class Room {
         this.roomName = roomName;
         this.player1 = player1;
         this.p1State = new State(player1.getUid(), 30, 3, 0);
+        p1bill = -1;
+        p1Submit = false;
         p1UdpAddr = player1.getInetSocketAddress();
     }
     public void enterRoom(Session player2) {
         this.player2 = player2;
         this.p2State = new State(player2.getUid(), 30, 3, 0);
+        p2bill = -1;
+        p2Submit = false;
         p2UdpAddr = player2.getInetSocketAddress();
     }
     public boolean isReady() {
@@ -77,6 +89,7 @@ public class Room {
 
     public synchronized void startGame(long nowMs) {
         gameRunning = true;
+        round = Round.NORMAL;
         currentTurnUid = player1.getUid();
         turnNumber = 1;
         lastLoggedRemain = -1;
@@ -88,15 +101,20 @@ public class Room {
         turnTimer.stopTurnTimer();
     }
 
-    public synchronized void changeTurn(long nowMs) {
+    public synchronized Round changeTurn(long nowMs) {
         // 턴이 끝난 플레이어만 보너스 데미지 초기화
         State s = getCurrentTurn();
         if (s == null) {
             System.err.println("현재 턴인 " + currentTurnUid + " 플레이어의 상태가 없습니다");
-            return;
+            return null;
         }
         s.resetBonusDamage();
         turnNumber++;
+        round = Round.NORMAL;
+
+        // 스페셜 라운드인지 확인
+        if (checkSpecialRound(nowMs)) return round;
+
         boolean grantCost = (turnNumber >= 3);
         if (currentTurnUid.equals(player1.getUid())) {
             if (grantCost) p2State.addCoat(2);
@@ -108,15 +126,77 @@ public class Room {
         }
         lastLoggedRemain = -1;
         turnTimer.startTurnTimer(nowMs);
+        return round;
+    }
+
+    public boolean checkSpecialRound(long nowMs) {
+        if (turnNumber % 5 != 0) return false;
+        int r = random.nextInt(10) + 1;
+        if (r > 3) return false;
+        lastLoggedRemain = -1;
+        turnTimer.startTurnTimer(nowMs);
+        round = Round.SPECIAL;
+        p1bill = p2bill = -1;
+        p1Submit = p2Submit = false;
+        return true;
     }
 
     // 시간 초과로 서버가 강제 종료
     public synchronized void forceTurnEnd(long nowMs) {
         if (!turnTimer.isExpired(nowMs)) return;
+        if (round == Round.SPECIAL) {
+            if (!p1Submit) {
+                p1bill = 0;
+                p1Submit = true;
+            }
+            if (!p2Submit) {
+                p2bill = 0;
+                p2Submit = true;
+            }
+            resolveSpecial(nowMs);
+            return;
+        }
         changeTurn(nowMs);
-        // 다음 시작할 사람 시작
-        Message msg = new Message(Message.MODE_TURN_END, currentTurnUid, turnNumber);
+    }
+
+    public synchronized void submit(Session player, int cost, long nowMs) {
+        if (round != Round.SPECIAL) {
+            System.err.println("지금은 보너스 라운드가 아닙니다!");
+            return;
+        }
+
+        State me = getStateOf(player);
+        if (cost < 0 || cost > me.getCost()) {
+            System.err.println("코스트 부족 문제");
+            return;
+        }
+
+        if (player == player1 && p1Submit == false) {
+            p1bill = cost;
+            p1Submit = true;
+        }
+        else if (player == player2 && p2Submit == false) {
+            p2bill = cost;
+            p2Submit = true;
+        }
+
+        // 둘 다 제출했으면 즉시 결정
+        if (p1Submit && p2Submit) { resolveSpecial(nowMs); }
+    }
+
+    public synchronized void resolveSpecial(long nowMs) {
+        State winner = null;
+        if (p1bill > p2bill) {
+            winner = p1State;
+            p1State.addCoat(p1bill * -1);
+        }
+        else if (p1bill < p2bill) {
+            winner = p2State;
+            p2State.addCoat(p2bill * -1);
+        }
+        Message msg = new Message(Message.MODE_SPECIAL_RESULT, winner);
         broadcasting(msg);
+        changeTurn(nowMs);
     }
 
     public void broadcasting(Message msg) {
