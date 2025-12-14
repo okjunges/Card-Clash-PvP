@@ -62,6 +62,7 @@ public class Room {
         else return null;
     }
     public boolean applyCard(Card card, Session caster) {
+        if (round == Round.SPECIAL) return false;
         State me = getStateOf(caster);
         State enemy = getOpponentStateOf(caster);
         return card.executeCard(me, enemy);

@@ -429,7 +429,7 @@ public class Server extends JFrame {
             synchronized (room) {
                 boolean state = room.applyCard(msg.getCard(), this);
                 if (!state) {
-                    printDisplay(room.getRoomName() + "방에서 " + uid + "가 코스트 부족으로 " + msg.getCard().getCardName() + " 카드 사용 실패");
+                    printDisplay(room.getRoomName() + "방에서 " + uid + "가 " + msg.getCard().getCardName() + " 카드 사용 실패");
                     msg.setMessage("fail");
                     msg.setCard(null);
                     send(msg);
