@@ -15,6 +15,9 @@ public class Message implements Serializable {
     public final static int MODE_TURN_END = 0x80; // 턴 종료
     public final static int MODE_GAME_END = 0x100; // 게임 종료
     public final static int MODE_ROOM_LIST = 0x200; // 방 목록 조회
+    public final static int MODE_SPECIAL_START = 0x400;
+    public final static int MODE_SPECIAL_SUBMIT = 0x800;
+    public final static int MODE_SPECIAL_RESULT = 0x1000;
 
     private Card card;
     private String roomName;
@@ -24,11 +27,13 @@ public class Message implements Serializable {
     private String message;
     private State p1;
     private State p2;
+    private State winner;
     private Vector<String> rooms;
     private int udpPort;
     private int turn;
+    private int cost;
 
-    // 방 목록 요청
+    // 방 목록 요청, 배팅 시작
     public Message(int mode) { this.mode = mode; }
     // 게임 종료(패배한 userID), (클라)턴 종료 알림(종료한 userID)
     public Message(int mode, String userID) {
@@ -78,6 +83,16 @@ public class Message implements Serializable {
         this.mode = mode;
         this.p1 = p1;
         this.p2 = p2;
+    }
+    // 배팅 완료(클라 -> 서버)
+    public Message(int mode, int cost) {
+        this.mode = mode;
+        this.cost = cost;
+    }
+    // 특별 라운드 결과 방송, 배팅 이긴 사람의 코스트만 배팅한 만큼 감소
+    public Message(int mode, State winner) {
+        this.mode = mode;
+        this.winner = winner;
     }
     // 방 목록 반환
     public Message(int mode, Vector<String> rooms) {
@@ -152,6 +167,10 @@ public class Message implements Serializable {
     public void setUdpPort(int udpPort) { this.udpPort = udpPort; }
 
     public int getUdpPort() { return udpPort; }
+
+    public void setCost(int cost) { this.cost = cost; }
+
+    public int getCost() { return cost; }
 
     public Vector<String> getRoomNames() {
         return rooms;
