@@ -27,7 +27,7 @@ public class Server extends JFrame {
     private Thread clientThread;
     private Vector<ClientHandler> users = new Vector<ClientHandler>();
     private Vector<Room> rooms = new Vector<Room>();
-    private ServerLog log = new ServerLog();
+    private Logger log = new ServerLog();
 
     // UDP 통신
     private DatagramSocket udpSendSocket;
