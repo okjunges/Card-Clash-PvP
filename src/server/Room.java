@@ -120,6 +120,10 @@ public class Room {
     }
 
     public void broadcasting(Message msg) {
+        if (msg == null) {
+            System.err.println(roomName + "방(서버) - 빈객체 방송 요청 오류");
+            return;
+        }
         if (player1 != null) player1.send(msg);
         if (player2 != null) player2.send(msg);
     }

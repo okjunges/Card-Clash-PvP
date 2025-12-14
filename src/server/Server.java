@@ -274,6 +274,10 @@ public class Server  extends JFrame {
 
         public void send(Message msg) {
             try {
+                if (msg == null) {
+                    System.err.println("서버 빈객체 전송 요청 요류");
+                    return;
+                }
                 synchronized (out) {
                     // Java 직렬화에서 같은 State 객체를 반복 전송했을 때
                     // ObjectOutputStream 캐시 때문에 클라이언트가 업데이트를 못 받는 경우를 방지하기 위해서 캐시 삭제
@@ -412,19 +416,22 @@ public class Server  extends JFrame {
             }
 
             // 해당 카드 효과를 방에 적용
-            boolean state = room.applyCard(msg.getCard(), this);
-            if (!state) {
-                printDisplay(room.getRoomName() + "방에서 " + uid + "가 코스트 부족으로 " + msg.getCard().getCardName() + " 카드 사용 실패");
-                msg.setMessage("fail");
-                msg.setCard(null);
-                send(msg);
-                return;
-            }
-            printDisplay(room.getRoomName() + "방에서 " + uid + "가 " + msg.getCard().getCardName() + " 카드 사용");
-            room.broadcasting(msg);
+            Message stateMsg = null;
+            synchronized (room) {
+                boolean state = room.applyCard(msg.getCard(), this);
+                if (!state) {
+                    printDisplay(room.getRoomName() + "방에서 " + uid + "가 코스트 부족으로 " + msg.getCard().getCardName() + " 카드 사용 실패");
+                    msg.setMessage("fail");
+                    msg.setCard(null);
+                    send(msg);
+                    return;
+                }
+                printDisplay(room.getRoomName() + "방에서 " + uid + "가 " + msg.getCard().getCardName() + " 카드 사용");
+                room.broadcasting(msg);
 
-            // 변경된 상태를 모든 플레이어에게 방송
-            Message stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
+                // 변경된 상태를 모든 플레이어에게 방송
+                stateMsg = new Message(Message.MODE_SYNC_STATE, room.getP1State(), room.getP2State());
+            }
 
             printRoomPlayersState(room);
             room.broadcasting(stateMsg);
