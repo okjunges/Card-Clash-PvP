@@ -689,7 +689,7 @@ public class GamePanel extends JPanel {
         specialDialog.add(l_info, BorderLayout.NORTH);
 
         int upper = Math.min(maxCost, MAX_BET_COST);
-        JSlider slider = new JSlider(JSlider.HORIZONTAL, 1, upper, 1);
+        JSlider slider = new JSlider(JSlider.HORIZONTAL, 0, upper, 0);
         // 눈금 설정
         slider.setMajorTickSpacing(1);     // 모든 숫자 표시
         slider.setMinorTickSpacing(1);
@@ -821,7 +821,7 @@ public class GamePanel extends JPanel {
     public void playShieldEffect(boolean blueSide) {
         // Swing UI는 EDT에서만 변경
         if (!SwingUtilities.isEventDispatchThread()) {
-            SwingUtilities.invokeLater(() -> playBuffEffect(blueSide));
+            SwingUtilities.invokeLater(() -> playShieldEffect(blueSide));
             return;
         }
 

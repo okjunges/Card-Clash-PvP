@@ -596,7 +596,7 @@ public class ClientFrame extends JFrame {
         updateCostCache(msg.getP1(), msg.getP2());
     }
 
-    // 턴 종료 방송 - 상세 로직은 7단계에서 구현
+    // 턴 종료 방송
     private void handleTurnEnd(Message msg) {
         System.out.println("TURN_END rcv: nextTurnUid=" + msg.getUserID() + ", nextTurn=" + msg.getTurn() + ", myUid=" + uid);
 
