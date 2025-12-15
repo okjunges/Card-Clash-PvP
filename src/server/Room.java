@@ -204,6 +204,9 @@ public class Room {
 
         Message msg = new Message(Message.MODE_SPECIAL_RESULT, winner, currentTurnUid, turnNumber);
         broadcasting(msg);
+        // 변경된 상태를 모든 플레이어에게 방송
+        Message stateMsg = new Message(Message.MODE_SYNC_STATE, p1State, p2State);
+        broadcasting(stateMsg);
     }
 
     public void broadcasting(Message msg) {
