@@ -772,6 +772,10 @@ public class ClientFrame extends JFrame {
         gamePanel.lockForGameEnd();
     }
 
+    public void clearCurrentRoom() {
+        currentRoomName = null;
+    }
+
     public void requestLeaveRoomAfterGame() {
         // 1) UDP 타이머 수신 중지
         stopUdpTimerReceiver();
@@ -784,8 +788,7 @@ public class ClientFrame extends JFrame {
         // 3) 게임 UI 초기화
         gamePanel.resetGameUI();
 
-        // 4) 방 정보 정리 + 화면 이동
-        currentRoomName = null;
+        // 4) 화면 이동
         changeScreen("ROOM_LIST");
 
         // 5) 방 목록 갱신 요청(기존 있던 방식 유지)

@@ -591,7 +591,8 @@ public class GamePanel extends JPanel {
         b_leaveRoom.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                clientFrame.requestLeaveRoomAfterGame(); // 아래에서 추가할 메서드
+                clientFrame.clearCurrentRoom(); // 방정보 먼저 null
+                clientFrame.requestLeaveRoomAfterGame();
             }
         });
     }
