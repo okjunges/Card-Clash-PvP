@@ -619,7 +619,7 @@ public class ClientFrame extends JFrame {
         }
     }
 
-    // 게임 종료 방송 - 상세 로직은 7단계에서 구현
+    // 게임 종료 방송
     private void handleGameEnd(Message msg) {
         if (msg.getRoomName() != null && currentRoomName != null) {
             if (!currentRoomName.equals(msg.getRoomName())) return;
@@ -627,7 +627,7 @@ public class ClientFrame extends JFrame {
 
         String loser = msg.getUserID();
         boolean iWin = (uid != null && !uid.equals(loser));
-
+        clearCurrentRoom(); // 방정보 먼저 null
         gamePanel.showGameResult(iWin);
     }
 
