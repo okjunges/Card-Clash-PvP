@@ -33,6 +33,10 @@ public class WaitingRoomPanel extends JPanel {
     private boolean isOwner = false;
     private String roomName;
 
+    // 배경
+    private Image bgImage;
+
+
     public WaitingRoomPanel(ClientFrame parent) {
         this.parent = parent;
         buildGUI();
@@ -42,15 +46,19 @@ public class WaitingRoomPanel extends JPanel {
         setLayout(new BorderLayout(20, 20));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
+        bgImage = new ImageIcon(getClass().getResource("/resources/img/title.jpg")).getImage();
+
         // 상단: 방 이름
         l_roomName.setHorizontalAlignment(SwingConstants.CENTER);
-        l_roomName.setFont(new Font("Dialog", Font.BOLD, 18));
+        l_roomName.setFont(new Font("SansSerifl", Font.BOLD, 30));
+        l_roomName.setForeground(Color.WHITE);
         add(l_roomName, BorderLayout.NORTH);
 
         // 중앙: P1, P2 박스
         JPanel centerPanel = new JPanel(new GridLayout(1, 2, 20, 0));
-
+        centerPanel.setOpaque(false);
         JPanel p1Panel = new JPanel(new BorderLayout());
+        //p1Panel.setOpaque(false);
         p1Panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
         l_p1Name.setHorizontalAlignment(SwingConstants.CENTER);
         p1Panel.add(l_p1Name, BorderLayout.NORTH);
@@ -59,12 +67,17 @@ public class WaitingRoomPanel extends JPanel {
         l_p1Avatar.setOpaque(false);
 
         JPanel p2Panel = new JPanel(new BorderLayout());
+        //p2Panel.setOpaque(false);
         p2Panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2, true));
         l_p2Name.setHorizontalAlignment(SwingConstants.CENTER);
         p2Panel.add(l_p2Name, BorderLayout.NORTH);
 
         p2Panel.add(l_p2Avatar, BorderLayout.CENTER); // p2 이미지 들어가는 자리
         l_p2Avatar.setOpaque(false);
+
+        // 닉네임 폰트 크기설정
+        l_p1Name.setFont(new Font("Dialog", Font.BOLD, 22));
+        l_p2Name.setFont(new Font("Dialog", Font.BOLD, 22));
 
         centerPanel.add(p1Panel);
         centerPanel.add(p2Panel);
@@ -73,6 +86,10 @@ public class WaitingRoomPanel extends JPanel {
 
         // 하단: 시작 버튼
         JPanel bottomPanel = new JPanel(new GridLayout(1, 0, 10, 0));
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 40, 20, 40));
+        bottomPanel.setOpaque(false);
+        b_start.setFont(new Font("Dialog", Font.BOLD, 22));
+        b_start.setPreferredSize(new Dimension(0, 70));
         bottomPanel.add(b_start);
         add(bottomPanel, BorderLayout.SOUTH);
 
@@ -198,6 +215,15 @@ public class WaitingRoomPanel extends JPanel {
             l_p2Avatar.setText("P2 IMG");
         }
     }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (bgImage != null) {
+            g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
+        }
+    }
+
 
 }
 

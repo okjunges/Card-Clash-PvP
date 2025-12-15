@@ -10,6 +10,8 @@ public class RoomListPanel extends JPanel {
 
     private ClientFrame parent;
 
+    private Image bgImage;
+
     // 최대 6개 방(3행 2열)
     private JButton[] roomButtons = new JButton[6];
     private String selectedRoomName = null;
@@ -19,8 +21,11 @@ public class RoomListPanel extends JPanel {
 
         setLayout(new BorderLayout());
 
+        bgImage = new ImageIcon(getClass().getResource("/resources/img/title.jpg")).getImage();
+
         // ===== 방 리스트 영역 (3x2 격자) =====
         JPanel gridPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        gridPanel.setOpaque(false);
         gridPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         for (int i = 0; i < roomButtons.length; i++) {
@@ -38,10 +43,21 @@ public class RoomListPanel extends JPanel {
         add(gridPanel, BorderLayout.CENTER);
 
         // ===== 하단 버튼 줄 =====
-        JPanel bottomPanel = new JPanel(new GridLayout(1, 2));
+        JPanel bottomPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 20, 20));
 
         JButton b_create = new JButton("방 만들기");
         JButton b_enter = new JButton("선택한 방 들어가기");
+
+        // 버튼 크기 & 폰트
+        Font btnFont = new Font("Dialog", Font.BOLD, 18);
+        b_create.setFont(btnFont);
+        b_enter.setFont(btnFont);
+
+        b_create.setPreferredSize(new Dimension(0, 60));
+        b_enter.setPreferredSize(new Dimension(0, 60));
+
 
         bottomPanel.add(b_create);
         bottomPanel.add(b_enter);
@@ -86,10 +102,12 @@ public class RoomListPanel extends JPanel {
         for (int i = 0; i < roomButtons.length; i++) {
             JButton b = roomButtons[i];
             String text = b.getText();
+            b.setFont(new Font("Dialog", Font.BOLD, 24));
             if (text == null || text.trim().isEmpty()) {
                 b.setBackground(Color.WHITE); // 빈 칸
             } else if (i == index) {
-                b.setBackground(new Color(180, 210, 255)); // 선택된 방(조금 진한 파랑)
+                b.setBackground(new Color(150, 200, 255));
+                b.setFont(new Font("Dialog", Font.BOLD, 26)); // 선택된 방(조금 진한 파랑)
             } else {
                 b.setBackground(new Color(220, 235, 255)); // 일반 방(연한 스카이블루)
             }
@@ -104,6 +122,7 @@ public class RoomListPanel extends JPanel {
                 String name = rooms.get(i);
                 b.setText(name);
                 b.setEnabled(true);
+                b.setFont(new Font("Dialog", Font.BOLD, 24));
                 b.setBackground(new Color(220, 235, 255)); // 방 있음
             } else {
                 b.setText("");
@@ -113,4 +132,13 @@ public class RoomListPanel extends JPanel {
         }
         selectedRoomName = null;
     }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (bgImage != null) {
+            g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
+        }
+    }
+
 }

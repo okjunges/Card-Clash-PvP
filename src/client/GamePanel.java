@@ -80,6 +80,7 @@ public class GamePanel extends JPanel {
     private boolean specialSubmitted = false;
     private boolean specialRoundActive = false;
 
+    private static final int MAX_BET_COST = 30; //최대 코스트 제한
 
     // 게임 종료 오버레이
     private JLayeredPane centerLayer = new JLayeredPane();
@@ -111,6 +112,11 @@ public class GamePanel extends JPanel {
 
     // 1초 후 idle 복귀용 타이머
     private javax.swing.Timer effectTimer;
+
+    // 카드 오버레이용
+    private JPanel usedCardLayer = new JPanel(null);
+    private static final int USED_CARD_W = 110;
+    private static final int USED_CARD_H = 150;
 
     public GamePanel(ClientFrame clientFrame, DefaultStyledDocument document) {
         this.clientFrame = clientFrame;
@@ -214,6 +220,8 @@ public class GamePanel extends JPanel {
         };
         backgroundPanel.setOpaque(false);
 
+        usedCardLayer.setOpaque(false);
+
         // ===== CENTER를 레이어로 구성(오버레이용) =====
         baseGamePanel.setLayout(new BorderLayout());
         baseGamePanel.setOpaque(false);
@@ -229,6 +237,8 @@ public class GamePanel extends JPanel {
         centerLayer.add(backgroundPanel, JLayeredPane.DEFAULT_LAYER);
         // 캐릭터/전투
         centerLayer.add(baseGamePanel, JLayeredPane.MODAL_LAYER);
+        //카드 오버레이
+        centerLayer.add(usedCardLayer, JLayeredPane.POPUP_LAYER);
         // 결과 오버레이
         centerLayer.add(l_resultOverlay, JLayeredPane.PALETTE_LAYER);
 
@@ -240,6 +250,7 @@ public class GamePanel extends JPanel {
 
                 backgroundPanel.setBounds(0, 0, w, h);
                 baseGamePanel.setBounds(0, 0, w, h);
+                usedCardLayer.setBounds(0, 0, w, h);
                 l_resultOverlay.setBounds(0, 0, w, h);
 
                 centerLayer.revalidate();
@@ -671,16 +682,23 @@ public class GamePanel extends JPanel {
         specialDialog = new JDialog(SwingUtilities.getWindowAncestor(this), "보너스 라운드 배팅",
                 Dialog.ModalityType.MODELESS);   // 모달 금지
         specialDialog.setLayout(new BorderLayout());
-        specialDialog.setSize(360, 180);
+        specialDialog.setSize(620, 300);
         specialDialog.setLocationRelativeTo(this);
 
         JLabel l_info = new JLabel("코스트를 얼마나 낼지 선택", SwingConstants.CENTER);
         specialDialog.add(l_info, BorderLayout.NORTH);
 
-        JSlider slider = new JSlider(0, Math.max(0, maxCost), 0);
-        slider.setMajorTickSpacing(Math.max(1, Math.max(0, maxCost) / 5));
+        int upper = Math.min(maxCost, MAX_BET_COST);
+        JSlider slider = new JSlider(JSlider.HORIZONTAL, 1, upper, 1);
+        // 눈금 설정
+        slider.setMajorTickSpacing(1);     // 모든 숫자 표시
+        slider.setMinorTickSpacing(1);
         slider.setPaintTicks(true);
         slider.setPaintLabels(true);
+        slider.setPreferredSize(new Dimension(520, 100)); //가로 길이 늘림
+        slider.setSnapToTicks(true); // 스냅. 정확한 값 선택
+        slider.setFont(new Font("Dialog", Font.PLAIN, 13));
+
         specialDialog.add(slider, BorderLayout.CENTER);
 
         JPanel bottom = new JPanel(new BorderLayout());
@@ -761,6 +779,12 @@ public class GamePanel extends JPanel {
 
 
     public void playAttackEffect(boolean attackerIsBlue) {
+        // Swing UI는 EDT에서만 변경
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> playAttackEffect(attackerIsBlue));
+            return;
+        }
+
         // 기존 타이머 있으면 끊고 새로 시작
         if (effectTimer != null) effectTimer.stop();
 
@@ -778,6 +802,12 @@ public class GamePanel extends JPanel {
     }
 
     public void playBuffEffect(boolean blueSide) {
+        // Swing UI는 EDT에서만 변경
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> playBuffEffect(blueSide));
+            return;
+        }
+
         if (effectTimer != null) effectTimer.stop();
 
         if (blueSide) setLeftChar(BLUE_BUFF);
@@ -789,6 +819,12 @@ public class GamePanel extends JPanel {
     }
 
     public void playShieldEffect(boolean blueSide) {
+        // Swing UI는 EDT에서만 변경
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> playBuffEffect(blueSide));
+            return;
+        }
+
         if (effectTimer != null) effectTimer.stop();
 
         if (blueSide) setLeftChar(BLUE_SHIELD);
@@ -797,6 +833,59 @@ public class GamePanel extends JPanel {
         effectTimer = new javax.swing.Timer(1000, e -> resetBothToIdle());
         effectTimer.setRepeats(false);
         effectTimer.start();
+    }
+
+
+    public void showUsedCard(common.Card usedCard, boolean actorIsBlue) {
+        if (usedCard == null) return;
+
+        if (!SwingUtilities.isEventDispatchThread()) {
+            SwingUtilities.invokeLater(() -> showUsedCard(usedCard, actorIsBlue));
+            return;
+        }
+
+        // 카드 컴포넌트 생성 (기존 CardButton 재사용)
+        CardButton view = new CardButton(usedCard, cardBgImage);
+        view.setEnabled(false);
+        view.setFocusable(false);
+        view.setCursor(Cursor.getDefaultCursor());
+        view.setSize(USED_CARD_W, USED_CARD_H);
+
+        int layerW = usedCardLayer.getWidth();
+        int layerH = usedCardLayer.getHeight();
+
+        // 중앙 기준, 내 카드(파랑=actorIsBlue)는 약간 왼쪽 / 상대(빨강)는 약간 오른쪽
+        int baseX = (layerW - USED_CARD_W) / 2 + (actorIsBlue ? -120 : 120);
+        int baseY = (layerH - USED_CARD_H) / 2 + 40;
+
+        // 같은 쪽에서 연속 사용하면 조금씩 중앙으로 밀기(겹침 완화)
+        int sameSideCount = 0;
+        for (Component c : usedCardLayer.getComponents()) {
+            if (c instanceof JComponent) {
+                Object side = ((JComponent) c).getClientProperty("side");
+                if (side != null && side.equals(actorIsBlue ? "L" : "R")) sameSideCount++;
+            }
+        }
+        int gap = 25; // 카드가 겹치는 정도
+        int x = baseX + (actorIsBlue ? (sameSideCount * gap) : -(sameSideCount * gap));
+        int y = baseY;
+
+        x = Math.max(10, Math.min(x, layerW - USED_CARD_W - 10)); // 화면 밖으로 안나가게 보정
+
+        view.putClientProperty("side", actorIsBlue ? "L" : "R");
+        view.setLocation(x, y);
+
+        usedCardLayer.add(view, 0);
+        usedCardLayer.repaint();
+
+        // 3초 뒤 이 카드만 제거
+        javax.swing.Timer t = new javax.swing.Timer(3000, e -> {
+            usedCardLayer.remove(view);
+            usedCardLayer.revalidate();
+            usedCardLayer.repaint();
+        });
+        t.setRepeats(false);
+        t.start();
     }
 
 

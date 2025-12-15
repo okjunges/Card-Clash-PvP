@@ -518,6 +518,8 @@ public class ClientFrame extends JFrame {
         // blue = 나(uid), red = 상대 (좌우 고정)
         boolean actorIsBlue = (uid != null && uid.equals(actorUid));
 
+        gamePanel.showUsedCard(used, actorIsBlue);
+
         // 공격 카드
         if (used instanceof common.CardStrike
                 || used instanceof common.CardHeavyBlow
@@ -834,7 +836,7 @@ public class ClientFrame extends JFrame {
 
         if (uid != null && uid.equals(nextTurnUid)) {
             if (nextTurn >= 3) {
-                // ★ 보너스가 바로 이어지는 경우가 있어서 약간 지연 후 실행
+                // 보너스가 바로 이어지는 경우가 있어서 약간 지연 후 실행
                 new javax.swing.Timer(150, new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
