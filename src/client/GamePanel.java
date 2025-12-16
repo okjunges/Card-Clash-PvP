@@ -82,7 +82,7 @@ public class GamePanel extends JPanel {
 
     private static final int MAX_BET_COST = 30; //최대 코스트 제한
 
-    // 게임 종료 오버레이
+    // 게임 종료 오버레이 #외부참조
     private JLayeredPane centerLayer = new JLayeredPane();
     private JPanel baseGamePanel = new JPanel(new BorderLayout());
     private JLabel l_resultOverlay = new JLabel("", SwingConstants.CENTER);
@@ -204,6 +204,7 @@ public class GamePanel extends JPanel {
             System.out.println("배경 이미지 로드 실패");
         }
 
+        // 외부참조
         backgroundPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -222,7 +223,7 @@ public class GamePanel extends JPanel {
 
         usedCardLayer.setOpaque(false);
 
-        // ===== CENTER를 레이어로 구성(오버레이용) =====
+        // ===== CENTER를 레이어로 구성(오버레이용) ===== #외부참조
         baseGamePanel.setLayout(new BorderLayout());
         baseGamePanel.setOpaque(false);
         baseGamePanel.add(arena, BorderLayout.CENTER);
@@ -449,7 +450,7 @@ public class GamePanel extends JPanel {
 
     }
 
-    // 손패 갱신 메서드 추가(누적 대응, 겹침+오버 돌출)
+    // 손패 갱신 메서드 추가(누적 대응, 겹침+오버 돌출) # 외부참조
     public void setMyHand(java.util.List<common.Card> handCards) {
         handLayer.removeAll();
 
@@ -667,7 +668,7 @@ public class GamePanel extends JPanel {
         });
     }
 
-    // 구글링을 통해 공부하며 코드 작성
+    // 외부참조
     private void showSpecialDialog(int maxCost) {
         specialRoundActive = true;
 
@@ -679,8 +680,9 @@ public class GamePanel extends JPanel {
 
         specialSubmitted = false;
 
+        // 외부참조
         specialDialog = new JDialog(SwingUtilities.getWindowAncestor(this), "보너스 라운드 배팅",
-                Dialog.ModalityType.MODELESS);   // 모달 금지
+                Dialog.ModalityType.MODELESS);
         specialDialog.setLayout(new BorderLayout());
         specialDialog.setSize(620, 300);
         specialDialog.setLocationRelativeTo(this);
