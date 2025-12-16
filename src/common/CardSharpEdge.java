@@ -13,9 +13,4 @@ public class CardSharpEdge extends Card {
     public void changeState(State attacker, State target) {
         attacker.setBonusDamage(2);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

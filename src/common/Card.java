@@ -51,7 +51,4 @@ abstract public class Card implements Serializable {
     }
 
     abstract public void changeState(State attacker, State target);
-
-    // 카드 UI 작업
-    abstract public void drawCard();
 }

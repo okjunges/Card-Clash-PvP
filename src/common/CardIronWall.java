@@ -13,9 +13,4 @@ public class CardIronWall extends Card {
     public void changeState(State attacker, State target) {
         attacker.addShield(shield);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }
