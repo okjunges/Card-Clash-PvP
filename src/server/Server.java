@@ -2,7 +2,6 @@ package server;
 
 import common.Message;
 import common.ServerInfo;
-import common.State;
 
 import javax.swing.*;
 import java.awt.*;
@@ -92,6 +91,8 @@ public class Server extends JFrame {
 
     // 구글링을 통해 공부하며 코드 작성 (0.5초마다 서버에서 클라이언트에게 턴 시간 전송)
     // UDP 소켓을 먼저 만들고, 스케줄러를 만들고, 그 스케줄러는 TIMER_TICK_MS 초마다 tickTimersAndBroadcast() 이 함수를 실행
+    // 외부 개념 참고
+    // 스케줄 참고 : https://ducktopia.tistory.com/147#:~:text=%EC%A7%80%EC%97%B0%20%EC%8B%A4%ED%96%89(delay)%EC%9D%B4%EB%82%98%20%EC%A3%BC%EA%B8%B0%EC%A0%81%EC%9D%B8%20%EC%9E%91%EC%97%85(interval)%20%EC%8B%A4%ED%96%89%EC%97%90%20%ED%8A%B9%ED%99%94%EB%90%9C%20%EC%8A%A4%EB%A0%88%EB%93%9C%20%ED%92%80%EC%9E%85%EB%8B%88%EB%8B%A4.
     private void initUdpTimerSystem() {
         try {
             udpSendSocket = new DatagramSocket();
@@ -111,6 +112,11 @@ public class Server extends JFrame {
             throw new RuntimeException("UDP 송신 소켓 생성 실패", e);
         }
     }
+
+    // 게임 진행 중인 방에 턴 진행 시간을 UDP 전송하는 역할 + 턴 진행 시간이 끝나면 다음 턴으로 변환
+    // 벡터로 구성된 방에 접근하는데 동시 접근했을 때, 도중에 상태가 변화하는 것을 보호하기 위해 CopyOnWriteArrayList을 직접 구현 -> 'snapshot'으로 방 리스트를 복사하여 사용
+    // 외부 개념 참고
+    // https://curiousjinan.tistory.com/entry/java-copyonwritearraylist-concurrency
     private void tickTimersAndBroadcast() {
         long nowMs = System.currentTimeMillis();
 
@@ -168,6 +174,8 @@ public class Server extends JFrame {
     public void printDisplay(String msg) {
         // Swing은 스레드-세이프가 아니기 때문에 EDT(이벤트 디스패치 스레드)에서만 UI를 만져야 문제 발생 X
         // 스케줄러 스레드와 같은 다른 스레드에서 호출할 경우 랜덤하여 UI가 꼬이거나 멈추는 경우가 생길 수 있어 해당 부분을 방지하기 위해 처리
+        // 외부 개념 참고
+        // https://www.tutorialspoint.com/is-swing-thread-safe-in-java#:~:text=Another%20reason%20for%20that%20Java%20Swing%20is,SwingUtilities.invokeLater():%20In%20most%20cases%2C%20this%20is%20calling
         SwingUtilities.invokeLater(() -> {
             t_display.append(msg + "\n");
             t_display.setCaretPosition(t_display.getDocument().getLength());
@@ -290,6 +298,8 @@ public class Server extends JFrame {
                 synchronized (out) {
                     // Java 직렬화에서 같은 State 객체를 반복 전송했을 때
                     // ObjectOutputStream 캐시 때문에 클라이언트가 업데이트를 못 받는 경우를 방지하기 위해서 캐시 삭제
+                    // 외부 개념 참고
+                    // https://kj84.tistory.com/entry/%EA%B0%9D%EC%B2%B4-%EC%8A%A4%ED%8A%B8%EB%A6%BC-ObjectOutputStream-ObjectInputStream-%ED%81%B4%EB%9E%98%EC%8A%A4%EC%9D%98-%EC%83%9D%EC%84%B1%EC%9E%90%EC%99%80-%EB%A9%94%EC%86%8C%EB%93%9C
                     out.reset();    // 캐시 삭제
                     out.writeObject(msg);
                     out.flush();

@@ -13,9 +13,4 @@ public class CardChargeUp extends Card {
     public void changeState(State attacker, State target) {
         attacker.addCoat(1);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

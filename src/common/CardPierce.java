@@ -18,9 +18,4 @@ public class CardPierce extends Card {
         // 공격 후 상대방의 반사가 있을 때 반사 적용
         reflectCard(attacker, target);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

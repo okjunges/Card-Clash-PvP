@@ -13,9 +13,4 @@ public class CardAdrenalineRush extends Card {
     public void changeState(State attacker, State target) {
         applyDamageWithShield(attacker, 2);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

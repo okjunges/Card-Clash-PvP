@@ -14,9 +14,4 @@ public class CardCounterGuard extends Card {
         attacker.addShield(shield);
         attacker.setReflectDamage(3);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

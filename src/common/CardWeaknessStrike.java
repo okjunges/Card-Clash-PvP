@@ -20,9 +20,4 @@ public class CardWeaknessStrike extends Card {
 
         attacker.setBonusDamage(2);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }

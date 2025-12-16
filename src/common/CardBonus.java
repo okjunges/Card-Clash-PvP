@@ -16,9 +16,4 @@ public class CardBonus extends Card {
         attacker.addShield(shield);
         reflectCard(attacker, target);
     }
-
-    @Override
-    public void drawCard() {
-
-    }
 }
