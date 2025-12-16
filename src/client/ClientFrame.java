@@ -119,7 +119,7 @@ public class ClientFrame extends JFrame {
             // 수신 스레드 시작 (안에서 ObjectInputStream 생성)
             startReceiveThread();
 
-            // UDP 소켓 생성(0이면 OS가 비어있는 포트 자동 할당)
+            // UDP 소켓 생성(0이면 OS가 비어있는 포트 자동 할당) #외부참조
             udpSocket = new DatagramSocket(0);
             udpPort = udpSocket.getLocalPort();
 
@@ -137,7 +137,7 @@ public class ClientFrame extends JFrame {
         }
     }
 
-    // 수신 스레드 메서드
+    // 수신 스레드 메서드 #외부참조
     private void startReceiveThread() {
         receiveThread = new Thread(new Runnable() {
             @Override
@@ -227,6 +227,7 @@ public class ClientFrame extends JFrame {
         receiveThread.start();
     }
 
+    // #외부참조
     private void startUdpTimerReceiver() {
         if (udpSocket == null) return;
         if (udpReceiveThread != null) return; // 중복 시작 방지
@@ -241,7 +242,7 @@ public class ClientFrame extends JFrame {
                         udpSocket.receive(packet);
 
                         String payload = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
-                        // 형식: TIMER|roomName|turnNumber|turnUid|remainSec
+                        // 형식: TIMER|roomName|turnNumber|turnUid|remainSec 외부참조
                         String[] parts = payload.split("\\|");
                         if (parts.length != 5) continue;
                         if (!"TIMER".equals(parts[0])) continue;
@@ -261,7 +262,7 @@ public class ClientFrame extends JFrame {
                         if (currentRoomName == null) continue;
                         if (!currentRoomName.equals(roomName)) continue;
 
-                        // Swing UI 갱신
+                        // Swing UI 갱신 #외부참조
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
                             public void run() {
@@ -807,6 +808,7 @@ public class ClientFrame extends JFrame {
         gamePanel.enterSpecialRound(maxCost);
     }
 
+    // 외부참조
     private void handleSpecialResult(Message msg) {
         // 방 필터
         if (msg.getRoomName() != null && currentRoomName != null) {
@@ -839,7 +841,7 @@ public class ClientFrame extends JFrame {
 
         if (uid != null && uid.equals(nextTurnUid)) {
             if (nextTurn >= 3) {
-                // 보너스가 바로 이어지는 경우가 있어서 약간 지연 후 실행
+                // 보너스가 바로 이어지는 경우가 있어서 약간 지연 후 실행 (외부참조)
                 new javax.swing.Timer(150, new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {

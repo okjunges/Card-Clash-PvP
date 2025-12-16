@@ -167,6 +167,7 @@ public class WaitingRoomPanel extends JPanel {
         return player1Name;
     }
 
+    // 외부참조
     private ImageIcon loadScaledIconFromResource(String resourcePath, int w, int h) {
         try {
             java.net.URL url = getClass().getResource(resourcePath);
@@ -179,7 +180,6 @@ public class WaitingRoomPanel extends JPanel {
             return null;
         }
     }
-
 
     private void applyWaitingRoomAvatars() {
         int w = 220;

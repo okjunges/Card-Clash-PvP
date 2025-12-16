@@ -19,6 +19,7 @@ public class CircleStat extends JComponent {
         repaint();
     }
 
+    //외부 참조
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

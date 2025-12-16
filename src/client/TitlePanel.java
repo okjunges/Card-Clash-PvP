@@ -13,12 +13,13 @@ public class TitlePanel extends JPanel {
 
     private Image backgroundImage; // 배경이미지
 
-    // 타이틀 오버레이 색상 정의
+    // 타이틀 오버레이 색상 정의 (외부참조)
     private final Color overlayColor = new Color(0, 0, 0, 120);
 
     public TitlePanel(ClientFrame parent) {
         this.parent = parent;
 
+        // 외부참조
         try {
             java.net.URL bgUrl = getClass().getResource("/resources/img/title.jpg");
             if (bgUrl != null) {
@@ -121,6 +122,7 @@ public class TitlePanel extends JPanel {
         }
     }
 
+    // 외부참조
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -135,7 +137,7 @@ public class TitlePanel extends JPanel {
             );
         }
 
-        // 2) 반투명 오버레이
+        // 2) 반투명 오버레이 (외부참조)
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setColor(overlayColor);
         g2.fillRect(0, 0, getWidth(), getHeight());
